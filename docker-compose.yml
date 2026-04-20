@@ -18,7 +18,7 @@ services:
   api:
     build: ./api
     environment:
-      - DB_DSN=postgresql://dmarc_admin:secure_dmarc_pass@postgres:5432/dmarc_monitor
+      - DB_DSN=postgresql+psycopg://dmarc_admin:secure_dmarc_pass@postgres:5432/dmarc_monitor
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=change_me_in_production
     ports:
@@ -53,7 +53,7 @@ services:
     build: ./dmarc-parser
     environment:
       - BROKER_URL=redis://redis:6379/0
-      - DB_DSN=postgresql://dmarc_admin:secure_dmarc_pass@postgres:5432/dmarc_monitor
+      - DB_DSN=postgresql+psycopg://dmarc_admin:secure_dmarc_pass@postgres:5432/dmarc_monitor
     depends_on:
       - postgres
       - redis
