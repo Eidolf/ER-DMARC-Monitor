@@ -7,7 +7,7 @@ import sys
 from datetime import datetime
 from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Request
 from fastapi.responses import JSONResponse
-from sqlmodel import Session, create_engine, SQLModel, select
+from sqlmodel import Session, create_engine, SQLModel, select, func
 from pydantic import BaseModel
 from defusedxml import ElementTree as ET
 
@@ -64,18 +64,26 @@ def create_domain(domain: DomainCreate, session: Session = Depends(get_session))
 def get_domains(session: Session = Depends(get_session)):
     return session.exec(select(Domain)).all()
 
+@app.delete("/domains/{domain_id}")
+def delete_domain(domain_id: int, session: Session = Depends(get_session)):
+    domain = session.get(Domain, domain_id)
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not found")
+    session.delete(domain)
+    session.commit()
+    return {"status": "success"}
+
 @app.get("/domains/{domain_name}/records")
 def get_domain_records(domain_name: str, session: Session = Depends(get_session)):
-    # Join ReportMetadata and ReportRecord to find records for this domain
+    # Case-insensitive join and filter
     statement = (
         select(ReportRecord)
         .join(ReportMetadata)
-        .where(ReportMetadata.domain_name == domain_name)
+        .where(func.lower(ReportMetadata.domain_name) == domain_name.lower())
         .order_by(ReportMetadata.date_end.desc())
     )
     results = session.exec(statement).all()
     
-    # Return formatted objects for the frontend
     return [
         {
             "id": r.id,
