@@ -115,73 +115,66 @@ def get_report_stats(session: Session = Depends(get_session)):
     }
 
 @app.post("/reports/upload")
-async def upload_report(file: UploadFile = File(...), session: Session = Depends(get_session)):
-    content = await file.read()
-    
-    try:
-        if file.filename.endswith('.gz'):
-            xml_data = gzip.decompress(content)
-        elif file.filename.endswith('.zip'):
-            with zipfile.ZipFile(io.BytesIO(content)) as z:
-                first_file = [n for n in z.namelist() if n.endswith('.xml')][0]
-                xml_data = z.read(first_file)
-        else:
-            xml_data = content
-            
-        root = ET.fromstring(xml_data)
-        metadata = root.find("report_metadata")
-        if metadata is None:
-            raise ValueError("report_metadata missing - not a valid DMARC aggregate report")
-            
-        report_id = metadata.findtext("report_id")
-        
-        # Idempotency block
-        existing = session.exec(select(ReportMetadata).where(ReportMetadata.report_id == report_id)).first()
-        if existing:
-            return {"status": "skipped", "message": "Report already exists"}
-            
-        report = ReportMetadata(
-            org_name=metadata.findtext("org_name"),
-            email=metadata.findtext("email"),
-            report_id=report_id,
-            date_begin=datetime.fromtimestamp(int(metadata.find("date_range").findtext("begin"))),
-            date_end=datetime.fromtimestamp(int(metadata.find("date_range").findtext("end"))),
-            domain_name=root.find("policy_published").findtext("domain") or "unknown"
-        )
-        session.add(report)
-        session.flush() # fetch generated ID
-        
-        for record in root.findall("record"):
-            row = record.find("row")
-            source_ip = row.findtext("source_ip")
-            count = int(row.findtext("count"))
-            disposition = row.find("policy_evaluated").findtext("disposition")
-            
-            auth_results = record.find("auth_results")
-            dkim_pass = False
-            spf_pass = False
-            
-            dkim_nodes = auth_results.findall("dkim")
-            if dkim_nodes:
-                dkim_pass = any(node.findtext("result") == "pass" for node in dkim_nodes)
+async def upload_reports(files: list[UploadFile] = File(...), session: Session = Depends(get_session)):
+    results = []
+    for file in files:
+        content = await file.read()
+        try:
+            if file.filename.endswith('.gz'):
+                xml_data = gzip.decompress(content)
+            elif file.filename.endswith('.zip'):
+                with zipfile.ZipFile(io.BytesIO(content)) as z:
+                    xml_files = [n for n in z.namelist() if n.endswith('.xml')]
+                    if not xml_files: continue
+                    xml_data = z.read(xml_files[0])
+            else:
+                xml_data = content
                 
-            spf_nodes = auth_results.findall("spf")
-            if spf_nodes:
-                spf_pass = any(node.findtext("result") == "pass" for node in spf_nodes)
-                    
-            r = ReportRecord(
-                report_id=report.id,
-                source_ip=source_ip,
-                count=count,
-                disposition=disposition,
-                dkim_pass=dkim_pass,
-                spf_pass=spf_pass
+            root = ET.fromstring(xml_data)
+            metadata = root.find("report_metadata")
+            if metadata is None: continue
+                
+            report_id = metadata.findtext("report_id")
+            existing = session.exec(select(ReportMetadata).where(ReportMetadata.report_id == report_id)).first()
+            if existing:
+                results.append({"filename": file.filename, "status": "skipped"})
+                continue
+                
+            report = ReportMetadata(
+                org_name=metadata.findtext("org_name"),
+                email=metadata.findtext("email"),
+                report_id=report_id,
+                date_begin=datetime.fromtimestamp(int(metadata.find("date_range").findtext("begin"))),
+                date_end=datetime.fromtimestamp(int(metadata.find("date_range").findtext("end"))),
+                domain_name=root.find("policy_published").findtext("domain") or "unknown"
             )
-            session.add(r)
+            session.add(report)
+            session.flush()
             
-        session.commit()
-        return {"status": "success", "report_id": report_id}
-        
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=400, detail=f"Error parsing report: {str(e)}")
+            for record in root.findall("record"):
+                row = record.find("row")
+                source_ip = row.findtext("source_ip")
+                count = int(row.findtext("count"))
+                disposition = row.find("policy_evaluated").findtext("disposition")
+                
+                auth_results = record.find("auth_results")
+                dkim_pass = any(node.findtext("result") == "pass" for node in auth_results.findall("dkim"))
+                spf_pass = any(node.findtext("result") == "pass" for node in auth_results.findall("spf"))
+                        
+                r = ReportRecord(
+                    report_id=report.id,
+                    source_ip=source_ip,
+                    count=count,
+                    disposition=disposition,
+                    dkim_pass=dkim_pass,
+                    spf_pass=spf_pass
+                )
+                session.add(r)
+            
+            results.append({"filename": file.filename, "status": "success"})
+            
+        except Exception as e:
+            results.append({"filename": file.filename, "status": "error", "detail": str(e)})
+            
+    session.commit()
+    return {"results": results}

@@ -232,9 +232,19 @@ nav {
   border-radius: 12px;
   border: 1px solid var(--border-glass);
 }
-.help-card h4 {
-  color: var(--accent-blue);
+.help-icon-box {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
   margin-bottom: 0.5rem;
+}
+.help-icon-box svg {
+  color: var(--accent-blue);
+  opacity: 0.8;
+}
+.help-card h4 {
+  color: var(--text-primary);
+  margin-bottom: 0;
 }
 .help-card p {
   font-size: 0.95rem;

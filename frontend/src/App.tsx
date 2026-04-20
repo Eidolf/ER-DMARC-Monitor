@@ -41,7 +41,7 @@ function App() {
   const [detailedRecords, setDetailedRecords] = useState<DetailedRecord[]>([]);
   
   const [newDomainName, setNewDomainName] = useState('');
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
 
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('er-dmarc-settings');
@@ -111,24 +111,24 @@ function App() {
   };
 
   const handleFileUpload = () => {
-    if (!uploadFile) return;
+    if (!uploadFiles || uploadFiles.length === 0) return;
     const formData = new FormData();
-    formData.append('file', uploadFile);
+    for(let i=0; i<uploadFiles.length; i++) {
+       formData.append('files', uploadFiles[i]);
+    }
 
     fetch('/api/reports/upload', {
       method: 'POST',
       body: formData
     }).then(res => res.json())
       .then(res => {
-        if (res.status === 'success' || res.status === 'skipped') {
-          alert('Upload processed: ' + (res.message || 'Success'));
-          setUploadOpen(false);
-          setUploadFile(null);
-          loadData();
-        } else {
-          alert('Error: ' + JSON.stringify(res));
-        }
-      }).catch(err => alert("Error uploading file: " + err));
+        const successes = res.results.filter((r:any) => r.status === 'success').length;
+        const skipped = res.results.filter((r:any) => r.status === 'skipped').length;
+        alert(`Process complete! ${successes} new reports added, ${skipped} duplicates skipped.`);
+        setUploadOpen(false);
+        setUploadFiles(null);
+        loadData();
+      }).catch(err => alert("Error uploading files: " + err));
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,7 +178,7 @@ function App() {
         </div>
         <nav>
           <button className={`nav-item ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>Overview</button>
-          <button className="nav-item" onClick={() => setUploadOpen(true)}>Upload Report</button>
+          <button className="nav-item" onClick={() => setUploadOpen(true)}>Upload Reports</button>
           <button className={`nav-item ${view === 'help' ? 'active' : ''}`} onClick={() => setView('help')}>Help & Docs</button>
           <button className="nav-item" onClick={() => setSettingsOpen(true)}>Admin Settings</button>
         </nav>
@@ -256,26 +256,38 @@ function App() {
           
           <div className="help-grid">
             <div className="help-card">
-              <h4>🛡️ Overview & KPIs</h4>
+              <div className="help-icon-box">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <h4>Overview & KPIs</h4>
+              </div>
               <p>The dashboard provides a high-level view of your DMARC health. 
-              <strong>Total Analyzed</strong> shows the sum of all email counts in uploaded reports. 
-              <strong>Failures</strong> indicate emails that failed SPF or DKIM checks. 
-              <strong>Unauthorized Senders</strong> identifies unique source IPs that failed both SPF and DKIM.</p>
+              <strong> Total Analyzed</strong> shows the sum of all email counts in uploaded reports. 
+              <strong> Failures</strong> indicate emails that failed SPF or DKIM checks. 
+              <strong> Unauthorized Senders</strong> identifies unique source IPs that failed both SPF and DKIM.</p>
             </div>
             <div className="help-card">
-              <h4>🔍 Deep Analysis (Inspect)</h4>
+              <div className="help-icon-box">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <h4>Deep Analysis (Inspect)</h4>
+              </div>
               <p>Click <strong>Inspect</strong> to open a domain-specific forensic view. 
               This view calculates a Security Score, identifies Top Senders, and flags suspicious unauthorized traffic. 
               Note: If "No records found" appears, ensure the uploaded XML report actually contains policy data for that specific domain name.</p>
             </div>
             <div className="help-card">
-              <h4>⚙️ Admin & Management</h4>
+              <div className="help-icon-box">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <h4>Admin & Management</h4>
+              </div>
               <p>In the <strong>Admin Settings</strong>, you can add or remove monitored domains. 
               You can also customize the system title and color theme, and upload your own company logo.</p>
             </div>
             <div className="help-card">
-              <h4>📤 Report Upload</h4>
-              <p>You can manually inject DMARC Aggregate Reports in <strong>.xml</strong>, <strong>.gz</strong>, or <strong>.zip</strong> format. 
+              <div className="help-icon-box">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <h4>Report Upload</h4>
+              </div>
+              <p>You can manually inject multiple DMARC Aggregate Reports at once in <strong>.xml</strong>, <strong>.gz</strong>, or <strong>.zip</strong> format. 
               The system automatically parses metadata and record details, avoiding duplicates via Report ID tracking.</p>
             </div>
           </div>
@@ -287,14 +299,14 @@ function App() {
         <div className="modal-overlay">
           <div className="glass-card modal-content" style={{ padding: '2rem' }}>
              <div className="modal-header">
-               <h2>Upload DMARC Report File</h2>
+               <h2>Bulk Upload DMARC Reports</h2>
                <button onClick={() => setUploadOpen(false)} className="close-btn">&times;</button>
              </div>
              <p style={{marginBottom: '1rem', color: 'var(--text-secondary)'}}>
-               Upload a raw .xml or compressed .xml.gz / .zip Aggregate Report manually.
+               Select one or more .xml, .xml.gz or .zip files for simultaneous processing.
              </p>
-             <input type="file" accept=".xml,.gz,.zip" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} />
-             <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={handleFileUpload}>Process File</button>
+             <input type="file" accept=".xml,.gz,.zip" multiple onChange={(e) => setUploadFiles(e.target.files)} />
+             <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={handleFileUpload}>Start Bulk Processing</button>
           </div>
         </div>
       )}
@@ -350,7 +362,7 @@ function App() {
                                     <td colSpan={4} style={{textAlign:'center', padding: '3rem'}}>
                                       <p style={{marginBottom: '0.5rem'}}>No records found for this domain.</p>
                                       <p style={{fontSize: '0.8rem', color: 'var(--alert-red)'}}>
-                                        Notice: If reports were uploaded, check if the "policy_published domain" in the XML matches "{inspectDomain}".
+                                        Notice: Verify that uploaded XML reports contain "policy_published domain" matching "{inspectDomain}".
                                       </p>
                                     </td>
                                   </tr>
@@ -406,7 +418,7 @@ function App() {
                  <div className="add-domain-group" style={{marginBottom: '1rem'}}>
                     <input 
                     type="text" 
-                    placeholder="Register new domain (e.g. domain.com)" 
+                    placeholder="Register new domain..." 
                     className="text-input" 
                     style={{ marginRight: '10px', width: '250px' }}
                     value={newDomainName} 
