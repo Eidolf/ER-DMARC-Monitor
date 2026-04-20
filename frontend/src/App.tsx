@@ -16,6 +16,18 @@ interface Stats {
   unauthorized_senders: number;
 }
 
+interface DetailedRecord {
+  id: number;
+  source_ip: string;
+  count: number;
+  disposition: string;
+  dkim_pass: boolean;
+  spf_pass: boolean;
+  report_id: string;
+  org_name: string;
+  date: string;
+}
+
 function App() {
   const [data, setData] = useState<{ id: number, name: string, dmarc_policy: string }[]>([]);
   const [stats, setStats] = useState<Stats>({ total_analyzed: 0, spf_failures: 0, dkim_failures: 0, unauthorized_senders: 0 });
@@ -24,6 +36,8 @@ function App() {
   // Modals
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [inspectDomain, setInspectDomain] = useState<string | null>(null);
+  const [detailedRecords, setDetailedRecords] = useState<DetailedRecord[]>([]);
   
   const [newDomainName, setNewDomainName] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -75,6 +89,14 @@ function App() {
         alert("Domain could not be added or already exists.");
       }
     });
+  };
+
+  const handleInspect = (domainName: string) => {
+    setInspectDomain(domainName);
+    fetch(`/api/domains/${domainName}/records`)
+      .then(res => res.json())
+      .then(json => setDetailedRecords(json))
+      .catch(err => console.error(err));
   };
 
   const handleFileUpload = () => {
@@ -198,7 +220,7 @@ function App() {
                     <tr key={domain.id}>
                       <td className="font-semibold">{domain.name}</td>
                       <td><span className={`badge policy-${domain.dmarc_policy || 'none'}`}>p={domain.dmarc_policy || 'none'}</span></td>
-                      <td><button className="view-btn">Inspect</button></td>
+                      <td><button className="view-btn" onClick={() => handleInspect(domain.name)}>Inspect</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -216,10 +238,51 @@ function App() {
                <button onClick={() => setUploadOpen(false)} className="close-btn">&times;</button>
              </div>
              <p style={{marginBottom: '1rem', color: 'var(--text-secondary)'}}>
-               Upload a raw .xml or compressed .xml.gz / .zip Aggregate Report manually to bypass the SMTP relay integration lock for immediate evaluation.
+               Upload a raw .xml or compressed .xml.gz / .zip Aggregate Report manually for immediate evaluation.
              </p>
              <input type="file" className="file-input" accept=".xml,.gz,.zip" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} />
              <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={handleFileUpload}>Process File</button>
+          </div>
+        </div>
+      )}
+
+      {inspectDomain && (
+        <div className="modal-overlay">
+          <div className="glass-card modal-content wide-modal" style={{ padding: '2rem' }}>
+             <div className="modal-header">
+               <h2>Details: {inspectDomain}</h2>
+               <button onClick={() => setInspectDomain(null)} className="close-btn">&times;</button>
+             </div>
+             <div className="scroll-box">
+               <table className="modern-table">
+                  <thead>
+                    <tr>
+                      <th>Source IP</th>
+                      <th>Count</th>
+                      <th>Disposition</th>
+                      <th>SPF</th>
+                      <th>DKIM</th>
+                      <th>Report Org</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailedRecords.length === 0 ? (
+                       <tr><td colSpan={7} style={{textAlign: 'center', padding: '2rem'}}>No records found for this domain.</td></tr>
+                    ) : detailedRecords.map(r => (
+                      <tr key={r.id}>
+                        <td>{r.source_ip}</td>
+                        <td>{r.count}</td>
+                        <td><span className={`badge policy-${r.disposition}`}>{r.disposition}</span></td>
+                        <td><span className={`status-tag ${r.spf_pass ? 'status-pass' : 'status-fail'}`}>{r.spf_pass ? 'PASS' : 'FAIL'}</span></td>
+                        <td><span className={`status-tag ${r.dkim_pass ? 'status-pass' : 'status-fail'}`}>{r.dkim_pass ? 'PASS' : 'FAIL'}</span></td>
+                        <td style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>{r.org_name}</td>
+                        <td style={{fontSize: '0.8rem'}}>{new Date(r.date).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+               </table>
+             </div>
           </div>
         </div>
       )}

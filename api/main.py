@@ -2,8 +2,11 @@ import os
 import gzip
 import zipfile
 import io
+import traceback
+import sys
 from datetime import datetime
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException
+from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlmodel import Session, create_engine, SQLModel, select
 from pydantic import BaseModel
 from defusedxml import ElementTree as ET
@@ -15,9 +18,24 @@ engine = create_engine(DB_DSN)
 
 app = FastAPI(title="DMARC Monitoring API")
 
+@app.middleware("http")
+async def db_session_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        print(f"CRITICAL ERROR: {e}", file=sys.stderr)
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
 @app.on_event("startup")
 def on_startup():
-    SQLModel.metadata.create_all(engine)
+    import time
+    for _ in range(5):
+        try:
+            SQLModel.metadata.create_all(engine)
+            break
+        except Exception:
+            time.sleep(2)
 
 def get_session():
     with Session(engine) as session:
@@ -45,6 +63,33 @@ def create_domain(domain: DomainCreate, session: Session = Depends(get_session))
 @app.get("/domains")
 def get_domains(session: Session = Depends(get_session)):
     return session.exec(select(Domain)).all()
+
+@app.get("/domains/{domain_name}/records")
+def get_domain_records(domain_name: str, session: Session = Depends(get_session)):
+    # Join ReportMetadata and ReportRecord to find records for this domain
+    statement = (
+        select(ReportRecord)
+        .join(ReportMetadata)
+        .where(ReportMetadata.domain_name == domain_name)
+        .order_by(ReportMetadata.date_end.desc())
+    )
+    results = session.exec(statement).all()
+    
+    # Return formatted objects for the frontend
+    return [
+        {
+            "id": r.id,
+            "source_ip": r.source_ip,
+            "count": r.count,
+            "disposition": r.disposition,
+            "dkim_pass": r.dkim_pass,
+            "spf_pass": r.spf_pass,
+            "report_id": r.report.report_id,
+            "org_name": r.report.org_name,
+            "date": r.report.date_end.isoformat()
+        }
+        for r in results
+    ]
 
 @app.get("/reports/stats")
 def get_report_stats(session: Session = Depends(get_session)):
@@ -92,7 +137,8 @@ async def upload_report(file: UploadFile = File(...), session: Session = Depends
             email=metadata.findtext("email"),
             report_id=report_id,
             date_begin=datetime.fromtimestamp(int(metadata.find("date_range").findtext("begin"))),
-            date_end=datetime.fromtimestamp(int(metadata.find("date_range").findtext("end")))
+            date_end=datetime.fromtimestamp(int(metadata.find("date_range").findtext("end"))),
+            domain_name=root.find("policy_published").findtext("domain") or "unknown"
         )
         session.add(report)
         session.flush() # fetch generated ID

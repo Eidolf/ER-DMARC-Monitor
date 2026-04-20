@@ -124,6 +124,7 @@ nav {
   font-size: 2.5rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
+  color: var(--text-primary);
 }
 
 .hero-section p {
@@ -219,6 +220,24 @@ nav {
   width: 100%;
   max-width: 500px;
 }
+.wide-modal {
+  max-width: 1000px;
+}
+.scroll-box {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-top: 1rem;
+}
+.status-tag {
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.status-pass { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+.status-fail { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
 
 .modal-header {
   display: flex;
