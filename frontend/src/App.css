@@ -386,6 +386,11 @@ nav {
   padding-bottom: 1rem;
 }
 
+.modal-header h2 {
+  color: var(--text-primary);
+  margin: 0;
+}
+
 .close-btn {
   background: transparent;
   border: none;
@@ -445,3 +450,64 @@ nav {
   max-height: 64px;
   object-fit: contain;
 }
+
+.clickable-row {
+  cursor: pointer;
+  transition: background 0.2s linear;
+}
+.clickable-row:hover {
+  background: rgba(255,255,255,0.05);
+}
+.clickable-row.expanded {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.auth-detail-row {
+  background: rgba(0,0,0,0.2) !important;
+}
+
+.auth-detail-box {
+  padding: 1.5rem;
+  border-left: 2px solid var(--accent-blue);
+  margin: 0.5rem;
+}
+
+.auth-detail-box h5 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.detail-col h6 {
+  margin: 0 0 0.8rem 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.auth-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  background: rgba(255,255,255,0.03);
+  padding: 0.8rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+}
+
+.human-hint {
+  margin-top: 0.3rem;
+  font-style: italic;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+

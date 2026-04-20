@@ -16,6 +16,14 @@ interface Stats {
   unauthorized_senders: number;
 }
 
+interface AuthDetail {
+  domain: string;
+  selector?: string;
+  result: string;
+  human_result?: string;
+  scope?: string;
+}
+
 interface DetailedRecord {
   id: number;
   source_ip: string;
@@ -23,6 +31,8 @@ interface DetailedRecord {
   disposition: string;
   dkim_pass: boolean;
   spf_pass: boolean;
+  dkim_auth_details: AuthDetail[];
+  spf_auth_details: AuthDetail[];
   report_id: string;
   org_name: string;
   date: string;
@@ -39,6 +49,7 @@ function App() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [inspectDomain, setInspectDomain] = useState<string | null>(null);
   const [detailedRecords, setDetailedRecords] = useState<DetailedRecord[]>([]);
+  const [expandedRecordId, setExpandedRecordId] = useState<number | null>(null);
   
   const [newDomainName, setNewDomainName] = useState('');
   const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
@@ -101,6 +112,7 @@ function App() {
   const handleInspect = (domainName: string) => {
     setInspectDomain(domainName);
     setDetailedRecords([]);
+    setExpandedRecordId(null);
     fetch(`/api/domains/${domainName}/records`)
       .then(res => res.json())
       .then(json => {
@@ -122,9 +134,9 @@ function App() {
       body: formData
     }).then(res => res.json())
       .then(res => {
-        const successes = res.results.filter((r:any) => r.status === 'success').length;
-        const skipped = res.results.filter((r:any) => r.status === 'skipped').length;
-        alert(`Process complete! ${successes} new reports added, ${skipped} duplicates skipped.`);
+        const successes = (res.results || []).filter((r:any) => r.status === 'success').length;
+        const skipped = (res.results || []).filter((r:any) => r.status === 'skipped').length;
+        alert(`Process complete! ${successes} new reports processed, ${skipped} duplicates skiped.`);
         setUploadOpen(false);
         setUploadFiles(null);
         loadData();
@@ -272,7 +284,7 @@ function App() {
               </div>
               <p>Click <strong>Inspect</strong> to open a domain-specific forensic view. 
               This view calculates a Security Score, identifies Top Senders, and flags suspicious unauthorized traffic. 
-              Note: If "No records found" appears, ensure the uploaded XML report actually contains policy data for that specific domain name.</p>
+              You can click on individual rows to see <strong>Forensic Auth Details</strong> (SPF/DKIM domains and results).</p>
             </div>
             <div className="help-card">
               <div className="help-icon-box">
@@ -287,8 +299,8 @@ function App() {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 <h4>Report Upload</h4>
               </div>
-              <p>You can manually inject multiple DMARC Aggregate Reports at once in <strong>.xml</strong>, <strong>.gz</strong>, or <strong>.zip</strong> format. 
-              The system automatically parses metadata and record details, avoiding duplicates via Report ID tracking.</p>
+              <p>You can manually inject multiple DMARC Aggregate Reports at once. 
+              Supported formats are <strong>.xml</strong>, <strong>.gz</strong>, or <strong>.zip</strong>.</p>
             </div>
           </div>
           <button className="action-btn" style={{marginTop: '2rem'}} onClick={() => setView('overview')}>Back to Dashboard</button>
@@ -303,7 +315,7 @@ function App() {
                <button onClick={() => setUploadOpen(false)} className="close-btn">&times;</button>
              </div>
              <p style={{marginBottom: '1rem', color: 'var(--text-secondary)'}}>
-               Select one or more .xml, .xml.gz or .zip files for simultaneous processing.
+               Select one or more .xml, .xml.gz or .zip files.
              </p>
              <input type="file" accept=".xml,.gz,.zip" multiple onChange={(e) => setUploadFiles(e.target.files)} />
              <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={handleFileUpload}>Start Bulk Processing</button>
@@ -317,7 +329,7 @@ function App() {
              <div className="modal-header">
                 <div>
                     <h2>Deep Analysis: {inspectDomain}</h2>
-                    <p style={{fontSize: '0.9rem', color: 'var(--text-secondary)'}}>Identity forensic for {inspectDomain}</p>
+                    <p style={{fontSize: '0.9rem', color: 'var(--text-secondary)'}}>Forensic deep-dive for {inspectDomain}</p>
                 </div>
                 <button onClick={() => setInspectDomain(null)} className="close-btn">&times;</button>
              </div>
@@ -326,11 +338,11 @@ function App() {
                 <div className="analysis-col">
                     <div className="report-summary-strip" style={{margin: '0', width: '100%', justifyContent: 'space-around'}}>
                         <div className="summary-item">
-                            <label>Total Volume</label>
+                            <label>Email Volume</label>
                             <span>{totalInRecords.toLocaleString()}</span>
                         </div>
                         <div className="summary-item">
-                            <label>Security Score</label>
+                            <label>Security Health</label>
                             <span className={totalInRecords === 0 ? "" : (spfPassCount + dkimPassCount) / (2 * totalInRecords) > 0.9 ? "text-green" : "text-orange"}>
                                 {totalInRecords > 0 ? Math.round(((spfPassCount + dkimPassCount) / (2 * totalInRecords)) * 100) : 0}%
                             </span>
@@ -338,7 +350,7 @@ function App() {
                     </div>
                     
                     <div className="scroll-box" style={{marginTop: '1rem', minHeight: '300px'}}>
-                        <h4 style={{marginBottom: '1rem', color: 'var(--text-primary)'}}>Recent Transactions</h4>
+                        <h4 style={{marginBottom: '1rem', color: 'var(--text-primary)'}}>Forensic Traffic Log</h4>
                         <table className="modern-table">
                             <thead>
                                 <tr>
@@ -350,20 +362,54 @@ function App() {
                             </thead>
                             <tbody>
                                 {detailedRecords.map(r => (
-                                <tr key={r.id}>
-                                    <td style={{fontSize: '0.85rem'}}><code>{r.source_ip}</code></td>
-                                    <td>{r.count}</td>
-                                    <td><span className={`status-tag ${r.spf_pass ? 'status-pass' : 'status-fail'}`}>{r.spf_pass ? 'PASS' : 'FAIL'}</span></td>
-                                    <td><span className={`status-tag ${r.dkim_pass ? 'status-pass' : 'status-fail'}`}>{r.dkim_pass ? 'PASS' : 'FAIL'}</span></td>
-                                </tr>
+                                <React.Fragment key={r.id}>
+                                    <tr 
+                                      className={`clickable-row ${expandedRecordId === r.id ? 'expanded' : ''}`}
+                                      onClick={() => setExpandedRecordId(expandedRecordId === r.id ? null : r.id)}
+                                    >
+                                        <td style={{fontSize: '0.85rem'}}><code>{r.source_ip}</code></td>
+                                        <td>{r.count}</td>
+                                        <td><span className={`status-tag ${r.spf_pass ? 'status-pass' : 'status-fail'}`}>{r.spf_pass ? 'PASS' : 'FAIL'}</span></td>
+                                        <td><span className={`status-tag ${r.dkim_pass ? 'status-pass' : 'status-fail'}`}>{r.dkim_pass ? 'PASS' : 'FAIL'}</span></td>
+                                    </tr>
+                                    {expandedRecordId === r.id && (
+                                        <tr className="auth-detail-row">
+                                            <td colSpan={4}>
+                                                <div className="auth-detail-box">
+                                                    <h5>Authentication Forensic Details</h5>
+                                                    <div className="detail-cols">
+                                                        <div className="detail-col">
+                                                            <h6>SPF Results</h6>
+                                                            {r.spf_auth_details.length === 0 ? <p>No data</p> : r.spf_auth_details.map((s, idx) => (
+                                                                <div key={idx} className="auth-entry">
+                                                                    <span><strong>Domain:</strong> {s.domain}</span>
+                                                                    <span><strong>Result:</strong> <span className={s.result === 'pass' ? 'text-green' : 'text-red'}>{s.result}</span></span>
+                                                                    {s.scope && <span><strong>Scope:</strong> {s.scope}</span>}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <div className="detail-col">
+                                                            <h6>DKIM Results</h6>
+                                                            {r.dkim_auth_details.length === 0 ? <p>No data</p> : r.dkim_auth_details.map((d, idx) => (
+                                                                <div key={idx} className="auth-entry">
+                                                                    <span><strong>Domain:</strong> {d.domain}</span>
+                                                                    <span><strong>Selector:</strong> {d.selector}</span>
+                                                                    <span><strong>Result:</strong> <span className={d.result === 'pass' ? 'text-green' : 'text-red'}>{d.result}</span></span>
+                                                                    {d.human_result && <p className="human-hint">{d.human_result}</p>}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                                 ))}
                                 {detailedRecords.length === 0 && (
                                   <tr>
                                     <td colSpan={4} style={{textAlign:'center', padding: '3rem'}}>
                                       <p style={{marginBottom: '0.5rem'}}>No records found for this domain.</p>
-                                      <p style={{fontSize: '0.8rem', color: 'var(--alert-red)'}}>
-                                        Notice: Verify that uploaded XML reports contain "policy_published domain" matching "{inspectDomain}".
-                                      </p>
                                     </td>
                                   </tr>
                                 )}
@@ -392,10 +438,10 @@ function App() {
                     <div className="forensic-insight" style={{marginTop: '2rem'}}>
                         <h4>Forensic Insights</h4>
                         <div className="insight-card">
-                            {totalInRecords === 0 ? "Upload or correct reports to generate insights." : 
+                            {totalInRecords === 0 ? "Upload reports to generate forensic insights." : 
                              spfPassCount === totalInRecords && dkimPassCount === totalInRecords ? 
-                             "Healthy configuration. All traffic is authenticated." : 
-                             "Unauthenticated traffic detected. Check Top Senders for spoofing or SPF/DKIM misconfigs."}
+                             "Domain configuration is solid. All observed traffic is fully authenticated." : 
+                             "Forensic Alert: Unauthenticated traffic detected. Check detail view for DKIM selector/domain mismatches."}
                         </div>
                     </div>
                 </div>
@@ -418,7 +464,7 @@ function App() {
                  <div className="add-domain-group" style={{marginBottom: '1rem'}}>
                     <input 
                     type="text" 
-                    placeholder="Register new domain..." 
+                    placeholder="Domain name..." 
                     className="text-input" 
                     style={{ marginRight: '10px', width: '250px' }}
                     value={newDomainName} 

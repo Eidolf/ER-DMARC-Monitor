@@ -31,6 +31,10 @@ class ReportRecord(SQLModel, table=True):
     dkim_pass: bool
     spf_pass: bool
     
+    # Forensic Auth Details
+    spf_auth_results: str | None = Field(default=None)   # JSON string of results
+    dkim_auth_results: str | None = Field(default=None)  # JSON string of results
+    
     report: ReportMetadata = Relationship(sa_relationship=relationship("ReportMetadata", back_populates="records"))
 
 # Database initialization logic would go here

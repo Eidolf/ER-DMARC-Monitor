@@ -4,6 +4,7 @@ import zipfile
 import io
 import traceback
 import sys
+import json
 from datetime import datetime
 from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -92,6 +93,8 @@ def get_domain_records(domain_name: str, session: Session = Depends(get_session)
             "disposition": r.disposition,
             "dkim_pass": r.dkim_pass,
             "spf_pass": r.spf_pass,
+            "dkim_auth_details": json.loads(r.dkim_auth_results or "[]"),
+            "spf_auth_details": json.loads(r.spf_auth_results or "[]"),
             "report_id": r.report.report_id,
             "org_name": r.report.org_name,
             "date": r.report.date_end.isoformat()
@@ -158,8 +161,26 @@ async def upload_reports(files: list[UploadFile] = File(...), session: Session =
                 disposition = row.find("policy_evaluated").findtext("disposition")
                 
                 auth_results = record.find("auth_results")
-                dkim_pass = any(node.findtext("result") == "pass" for node in auth_results.findall("dkim"))
-                spf_pass = any(node.findtext("result") == "pass" for node in auth_results.findall("spf"))
+                
+                dkim_res_list = []
+                for d in auth_results.findall("dkim"):
+                    dkim_res_list.append({
+                        "domain": d.findtext("domain"),
+                        "selector": d.findtext("selector"),
+                        "result": d.findtext("result"),
+                        "human_result": d.findtext("human_result")
+                    })
+                    
+                spf_res_list = []
+                for s in auth_results.findall("spf"):
+                    spf_res_list.append({
+                        "domain": s.findtext("domain"),
+                        "result": s.findtext("result"),
+                        "scope": s.findtext("scope")
+                    })
+
+                dkim_pass = any(d["result"] == "pass" for d in dkim_res_list)
+                spf_pass = any(s["result"] == "pass" for s in spf_res_list)
                         
                 r = ReportRecord(
                     report_id=report.id,
@@ -167,7 +188,9 @@ async def upload_reports(files: list[UploadFile] = File(...), session: Session =
                     count=count,
                     disposition=disposition,
                     dkim_pass=dkim_pass,
-                    spf_pass=spf_pass
+                    spf_pass=spf_pass,
+                    dkim_auth_results=json.dumps(dkim_res_list),
+                    spf_auth_results=json.dumps(spf_res_list)
                 )
                 session.add(r)
             
