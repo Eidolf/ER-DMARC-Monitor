@@ -48,6 +48,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [inspectDomain, setInspectDomain] = useState<string | null>(null);
+  const [inspectTab, setInspectTab] = useState<'log' | 'reporters'>('log');
   const [detailedRecords, setDetailedRecords] = useState<DetailedRecord[]>([]);
   const [expandedRecordId, setExpandedRecordId] = useState<number | null>(null);
   
@@ -111,6 +112,7 @@ function App() {
 
   const handleInspect = (domainName: string) => {
     setInspectDomain(domainName);
+    setInspectTab('log');
     setDetailedRecords([]);
     setExpandedRecordId(null);
     fetch(`/api/domains/${domainName}/records`)
@@ -171,6 +173,18 @@ function App() {
   const topIps = [...ipMap.entries()]
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 5);
+
+  // Group by Reporter
+  const reporterMap = new Map<string, {count: number, spfFail: number, dkimFail: number, lastDate: string}>();
+  detailedRecords.forEach(r => {
+    const curr = reporterMap.get(r.org_name) || {count: 0, spfFail: 0, dkimFail: 0, lastDate: r.date};
+    curr.count += r.count;
+    if (!r.spf_pass) curr.spfFail += r.count;
+    if (!r.dkim_pass) curr.dkimFail += r.count;
+    if (new Date(r.date) > new Date(curr.lastDate)) curr.lastDate = r.date;
+    reporterMap.set(r.org_name, curr);
+  });
+  const reporters = [...reporterMap.entries()].sort((a, b) => b[1].count - a[1].count);
 
   return (
     <div className="dashboard-container">
@@ -334,6 +348,11 @@ function App() {
                 <button onClick={() => setInspectDomain(null)} className="close-btn">&times;</button>
              </div>
              
+             <div className="modal-tabs">
+                <button className={`tab-btn ${inspectTab === 'log' ? 'active' : ''}`} onClick={() => setInspectTab('log')}>Forensic Traffic Log</button>
+                <button className={`tab-btn ${inspectTab === 'reporters' ? 'active' : ''}`} onClick={() => setInspectTab('reporters')}>Report Sources (Reporters)</button>
+             </div>
+
              <div className="analysis-grid">
                 <div className="analysis-col">
                     <div className="report-summary-strip" style={{margin: '0', width: '100%', justifyContent: 'space-around'}}>
@@ -349,72 +368,99 @@ function App() {
                         </div>
                     </div>
                     
-                    <div className="scroll-box" style={{marginTop: '1rem', minHeight: '300px'}}>
-                        <h4 style={{marginBottom: '1rem', color: 'var(--text-primary)'}}>Forensic Traffic Log</h4>
-                        <table className="modern-table">
-                            <thead>
-                                <tr>
-                                <th>Source IP</th>
-                                <th>Volume</th>
-                                <th>SPF</th>
-                                <th>DKIM</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {detailedRecords.map(r => (
-                                <React.Fragment key={r.id}>
-                                    <tr 
-                                      className={`clickable-row ${expandedRecordId === r.id ? 'expanded' : ''}`}
-                                      onClick={() => setExpandedRecordId(expandedRecordId === r.id ? null : r.id)}
-                                    >
-                                        <td style={{fontSize: '0.85rem'}}><code>{r.source_ip}</code></td>
-                                        <td>{r.count}</td>
-                                        <td><span className={`status-tag ${r.spf_pass ? 'status-pass' : 'status-fail'}`}>{r.spf_pass ? 'PASS' : 'FAIL'}</span></td>
-                                        <td><span className={`status-tag ${r.dkim_pass ? 'status-pass' : 'status-fail'}`}>{r.dkim_pass ? 'PASS' : 'FAIL'}</span></td>
+                    <div className="scroll-box" style={{marginTop: '1rem', minHeight: '350px'}}>
+                        {inspectTab === 'log' ? (
+                            <table className="modern-table">
+                                <thead>
+                                    <tr>
+                                    <th>Source IP</th>
+                                    <th>Volume</th>
+                                    <th>SPF</th>
+                                    <th>DKIM</th>
                                     </tr>
-                                    {expandedRecordId === r.id && (
-                                        <tr className="auth-detail-row">
-                                            <td colSpan={4}>
-                                                <div className="auth-detail-box">
-                                                    <h5>Authentication Forensic Details</h5>
-                                                    <div className="detail-cols">
-                                                        <div className="detail-col">
-                                                            <h6>SPF Results</h6>
-                                                            {r.spf_auth_details.length === 0 ? <p>No data</p> : r.spf_auth_details.map((s, idx) => (
-                                                                <div key={idx} className="auth-entry">
-                                                                    <span><strong>Domain:</strong> {s.domain}</span>
-                                                                    <span><strong>Result:</strong> <span className={s.result === 'pass' ? 'text-green' : 'text-red'}>{s.result}</span></span>
-                                                                    {s.scope && <span><strong>Scope:</strong> {s.scope}</span>}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                        <div className="detail-col">
-                                                            <h6>DKIM Results</h6>
-                                                            {r.dkim_auth_details.length === 0 ? <p>No data</p> : r.dkim_auth_details.map((d, idx) => (
-                                                                <div key={idx} className="auth-entry">
-                                                                    <span><strong>Domain:</strong> {d.domain}</span>
-                                                                    <span><strong>Selector:</strong> {d.selector}</span>
-                                                                    <span><strong>Result:</strong> <span className={d.result === 'pass' ? 'text-green' : 'text-red'}>{d.result}</span></span>
-                                                                    {d.human_result && <p className="human-hint">{d.human_result}</p>}
-                                                                </div>
-                                                            ))}
+                                </thead>
+                                <tbody>
+                                    {detailedRecords.map(r => (
+                                    <React.Fragment key={r.id}>
+                                        <tr 
+                                        className={`clickable-row ${expandedRecordId === r.id ? 'expanded' : ''}`}
+                                        onClick={() => setExpandedRecordId(expandedRecordId === r.id ? null : r.id)}
+                                        >
+                                            <td style={{fontSize: '0.85rem'}}><code>{r.source_ip}</code></td>
+                                            <td>{r.count}</td>
+                                            <td><span className={`status-tag ${r.spf_pass ? 'status-pass' : 'status-fail'}`}>{r.spf_pass ? 'PASS' : 'FAIL'}</span></td>
+                                            <td><span className={`status-tag ${r.dkim_pass ? 'status-pass' : 'status-fail'}`}>{r.dkim_pass ? 'PASS' : 'FAIL'}</span></td>
+                                        </tr>
+                                        {expandedRecordId === r.id && (
+                                            <tr className="auth-detail-row">
+                                                <td colSpan={4}>
+                                                    <div className="auth-detail-box">
+                                                        <h5>Authentication Forensic Details</h5>
+                                                        <div className="detail-cols">
+                                                            <div className="detail-col">
+                                                                <h6>SPF Results</h6>
+                                                                {r.spf_auth_details.length === 0 ? <p>No data</p> : r.spf_auth_details.map((s, idx) => (
+                                                                    <div key={idx} className="auth-entry">
+                                                                        <span><strong>Domain:</strong> {s.domain}</span>
+                                                                        <span><strong>Result:</strong> <span className={s.result === 'pass' ? 'text-green' : 'text-red'}>{s.result}</span></span>
+                                                                        {s.scope && <span><strong>Scope:</strong> {s.scope}</span>}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <div className="detail-col">
+                                                                <h6>DKIM Results</h6>
+                                                                {r.dkim_auth_details.length === 0 ? <p>No data</p> : r.dkim_auth_details.map((d, idx) => (
+                                                                    <div key={idx} className="auth-entry">
+                                                                        <span><strong>Domain:</strong> {d.domain}</span>
+                                                                        <span><strong>Selector:</strong> {d.selector}</span>
+                                                                        <span><strong>Result:</strong> <span className={d.result === 'pass' ? 'text-green' : 'text-red'}>{d.result}</span></span>
+                                                                        {d.human_result && <p className="human-hint">{d.human_result}</p>}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                    ))}
+                                    {detailedRecords.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} style={{textAlign:'center', padding: '3rem'}}>
+                                        <p style={{marginBottom: '0.5rem'}}>No records found for this domain.</p>
+                                        </td>
+                                    </tr>
                                     )}
-                                </React.Fragment>
-                                ))}
-                                {detailedRecords.length === 0 && (
-                                  <tr>
-                                    <td colSpan={4} style={{textAlign:'center', padding: '3rem'}}>
-                                      <p style={{marginBottom: '0.5rem'}}>No records found for this domain.</p>
-                                    </td>
-                                  </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        ) : (
+                            <table className="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Reporting Organization</th>
+                                        <th>Volume</th>
+                                        <th>SPF Fail</th>
+                                        <th>DKIM Fail</th>
+                                        <th>Last Report</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {reporters.map(([name, meta]) => (
+                                        <tr key={name}>
+                                            <td className="font-semibold">{name}</td>
+                                            <td>{meta.count.toLocaleString()}</td>
+                                            <td className={meta.spfFail > 0 ? "text-red" : ""}>{meta.spfFail.toLocaleString()}</td>
+                                            <td className={meta.dkimFail > 0 ? "text-orange" : ""}>{meta.dkimFail.toLocaleString()}</td>
+                                            <td style={{fontSize: '0.8rem'}}>{new Date(meta.lastDate).toLocaleDateString()}</td>
+                                        </tr>
+                                    ))}
+                                    {reporters.length === 0 && (
+                                        <tr><td colSpan={5} style={{textAlign: 'center', padding: '3rem'}}>No reporter data.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 </div>
 
