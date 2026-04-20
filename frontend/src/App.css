@@ -491,10 +491,27 @@ nav {
   cursor: pointer;
   user-select: none;
   transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .sortable-header:hover {
   color: var(--accent-blue);
+}
+
+.sort-icon {
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.sort-icon.inactive {
+  opacity: 0.3;
+}
+
+.sort-icon.active {
+  color: var(--accent-blue);
+  opacity: 1;
 }
 
 .clickable-row {
