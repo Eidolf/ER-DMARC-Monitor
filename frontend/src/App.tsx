@@ -108,7 +108,7 @@ function App() {
   };
 
   const handleDeleteDomain = (id: number) => {
-    if (!window.confirm("Delete monitored domain?")) return;
+    if (!window.confirm("Delete domain?")) return;
     fetch(`/api/domains/${id}`, { method: 'DELETE' }).then(() => loadData());
   };
 
@@ -126,14 +126,10 @@ function App() {
   };
 
   const handleFileUpload = () => {
-    if (!uploadFiles || uploadFiles.length === 0) return;
+    if (!uploadFiles) return;
     const formData = new FormData();
     for(let i=0; i<uploadFiles.length; i++) formData.append('files', uploadFiles[i]);
-    fetch('/api/reports/upload', { method: 'POST', body: formData }).then(res => res.json()).then(() => {
-        setUploadOpen(false);
-        setUploadFiles(null);
-        loadData();
-    }).catch(err => alert("Error: " + err));
+    fetch('/api/reports/upload', { method: 'POST', body: formData }).then(() => { setUploadOpen(false); loadData(); });
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,7 +200,7 @@ function App() {
 
       {view === 'overview' ? (
         <main className="dashboard-content">
-          <div className="hero-section"><h2>Security Posture</h2><p>Real-time analytics portal</p></div>
+          <div className="hero-section"><h2>Security Posture</h2><p>DMARC monitoring console</p></div>
           <section className="kpi-grid">
             <div className="glass-card kpi"><h3>Total Analyzed</h3><span className="kpi-value text-gradient">{stats.total_analyzed.toLocaleString()}</span></div>
             <div className="glass-card kpi"><h3>SPF Failures</h3><span className={stats.spf_failures > 0 ? "kpi-value text-red" : "kpi-value text-gradient"}>{stats.spf_failures.toLocaleString()}</span></div>
@@ -225,12 +221,8 @@ function App() {
         </main>
       ) : (
         <main className="dashboard-content">
-          <div className="hero-section"><h2>Manual & Documentation</h2><p>System workflows</p></div>
-          <div className="help-grid">
-             <div className="help-card"><div className="help-icon-box"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><h4>KPIs</h4></div><p>Dashboard analytics.</p></div>
-             <div className="help-card"><div className="help-icon-box"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><h4>Forensics</h4></div><p>Deep-dive analysis with search and sort.</p></div>
-          </div>
-          <button className="action-btn" style={{marginTop: '2rem'}} onClick={() => setView('overview')}>Back</button>
+          <div className="hero-section"><h2>System Help</h2><p>Documentation</p></div>
+          <button className="action-btn" onClick={() => setView('overview')}>Back</button>
         </main>
       )}
 
@@ -238,7 +230,7 @@ function App() {
         <div className="modal-overlay">
           <div className="glass-card modal-content" style={{ padding: '2rem' }}>
              <div className="modal-header"><h2>Bulk Upload</h2><button onClick={() => setUploadOpen(false)} className="close-btn">&times;</button></div>
-             <input type="file" accept=".xml,.gz,.zip" multiple onChange={(e) => setUploadFiles(e.target.files)} />
+             <input type="file" multiple onChange={(e) => setUploadFiles(e.target.files)} />
              <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={handleFileUpload}>Process</button>
           </div>
         </div>
@@ -269,10 +261,10 @@ function App() {
                             <table className="modern-table">
                                 <thead>
                                     <tr>
-                                    <th className="sortable-header" onClick={() => handleSort('source_ip')}>Source IP <SortIcon active={sortConfig.key==='source_ip'} direction={sortConfig.direction} /></th>
-                                    <th className="sortable-header" onClick={() => handleSort('count')}>Volume <SortIcon active={sortConfig.key==='count'} direction={sortConfig.direction} /></th>
-                                    <th className="sortable-header" onClick={() => handleSort('org_name')}>Reporter <SortIcon active={sortConfig.key==='org_name'} direction={sortConfig.direction} /></th>
-                                    <th className="sortable-header" onClick={() => handleSort('date')}>Date <SortIcon active={sortConfig.key==='date'} direction={sortConfig.direction} /></th>
+                                    <th className="sortable-header" onClick={() => handleSort('source_ip')}><div className="th-content">Source IP <SortIcon active={sortConfig.key==='source_ip'} direction={sortConfig.direction} /></div></th>
+                                    <th className="sortable-header" onClick={() => handleSort('count')}><div className="th-content">Volume <SortIcon active={sortConfig.key==='count'} direction={sortConfig.direction} /></div></th>
+                                    <th className="sortable-header" onClick={() => handleSort('org_name')}><div className="th-content">Reporter <SortIcon active={sortConfig.key==='org_name'} direction={sortConfig.direction} /></div></th>
+                                    <th className="sortable-header" onClick={() => handleSort('date')}><div className="th-content">Date <SortIcon active={sortConfig.key==='date'} direction={sortConfig.direction} /></div></th>
                                     <th>Status</th>
                                     </tr>
                                 </thead>
@@ -292,7 +284,7 @@ function App() {
                             </table>
                         ) : (
                             <table className="modern-table">
-                                <thead><tr><th className="sortable-header" onClick={() => handleSort('org_name')}>Reporting Org <SortIcon active={sortConfig.key==='org_name'} direction={sortConfig.direction} /></th><th>Volume</th><th>SPF Fail</th><th>DKIM Fail</th></tr></thead>
+                                <thead><tr><th className="sortable-header" onClick={() => handleSort('org_name')}><div className="th-content">Reporting Org <SortIcon active={sortConfig.key==='org_name'} direction={sortConfig.direction} /></div></th><th>Volume</th><th>SPF Fail</th><th>DKIM Fail</th></tr></thead>
                                 <tbody>{reporters.map(([name, meta]) => (<tr key={name}><td>{name}</td><td>{meta.count}</td><td>{meta.spfFail}</td><td>{meta.dkimFail}</td></tr>))}</tbody>
                             </table>
                         )}

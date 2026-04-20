@@ -491,6 +491,9 @@ nav {
   cursor: pointer;
   user-select: none;
   transition: color 0.2s;
+}
+
+.th-content {
   display: flex;
   align-items: center;
   gap: 0.5rem;
