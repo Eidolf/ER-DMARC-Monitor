@@ -9,20 +9,33 @@ interface AppSettings {
   logoUrl: string;
 }
 
+interface Stats {
+  total_analyzed: number;
+  spf_failures: number;
+  dkim_failures: number;
+  unauthorized_senders: number;
+}
+
 function App() {
-  const [data, setData] = useState<{ id: number, name: string, dmarc_policy: string, status?: string }[]>([]);
+  const [data, setData] = useState<{ id: number, name: string, dmarc_policy: string }[]>([]);
+  const [stats, setStats] = useState<Stats>({ total_analyzed: 0, spf_failures: 0, dkim_failures: 0, unauthorized_senders: 0 });
   const [loading, setLoading] = useState(true);
   
-  // Settings State
+  // Modals
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  
+  const [newDomainName, setNewDomainName] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('er-dmarc-settings');
     if (saved) return JSON.parse(saved);
     return {
       titlePart1: 'ER-DMARC',
       titlePart2: '-Monitor',
-      colorPart1: '#e6edf3', // Primary text
-      colorPart2: '#3b82f6', // Accent blue
+      colorPart1: '#e6edf3',
+      colorPart2: '#3b82f6',
       logoUrl: '/favicon.png'
     };
   });
@@ -31,24 +44,59 @@ function App() {
     localStorage.setItem('er-dmarc-settings', JSON.stringify(settings));
   }, [settings]);
 
-  useEffect(() => {
-    // Productive Fetch - No Demo Data
-    // We expect the API at /api/domains to return our domains
+  const loadData = () => {
     fetch('/api/domains')
-      .then(res => {
-        if (!res.ok) throw new Error('API Error');
-        return res.json();
-      })
-      .then(json => {
-        setData(json || []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setData([]); // Empty state on failure or init
-        setLoading(false);
-      });
+      .then(res => res.json())
+      .then(json => setData(json || []))
+      .catch(err => console.error(err));
+
+    fetch('/api/reports/stats')
+      .then(res => res.json())
+      .then(json => setStats(json))
+      .catch(err => console.error(err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  const handleAddDomain = () => {
+    if (!newDomainName) return;
+    fetch('/api/domains', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newDomainName, dmarc_policy: "none" })
+    }).then(res => {
+      if (res.ok) {
+        setNewDomainName('');
+        loadData();
+      } else {
+        alert("Domain could not be added or already exists.");
+      }
+    });
+  };
+
+  const handleFileUpload = () => {
+    if (!uploadFile) return;
+    const formData = new FormData();
+    formData.append('file', uploadFile);
+
+    fetch('/api/reports/upload', {
+      method: 'POST',
+      body: formData
+    }).then(res => res.json())
+      .then(res => {
+        if (res.status === 'success' || res.status === 'skipped') {
+          alert('Upload processed: ' + (res.message || 'Success'));
+          setUploadOpen(false);
+          setUploadFile(null);
+          loadData(); // Refresh stats
+        } else {
+          alert('Error: ' + JSON.stringify(res));
+        }
+      }).catch(err => alert("Error uploading file: " + err));
+  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,7 +129,7 @@ function App() {
         </div>
         <nav>
           <button className="nav-item active">Overview</button>
-          <button className="nav-item">Reports</button>
+          <button className="nav-item" onClick={() => setUploadOpen(true)}>Upload Report</button>
           <button className="nav-item" onClick={() => setSettingsOpen(true)}>Admin Settings</button>
         </nav>
         <div className="user-profile">AE</div>
@@ -93,11 +141,40 @@ function App() {
           <p>Real-time analytics across your monitored infrastructure</p>
         </div>
 
+        <section className="kpi-grid">
+          <div className="glass-card kpi">
+            <h3>Total Analyzed</h3>
+            <span className="kpi-value text-gradient">{stats.total_analyzed.toLocaleString()}</span>
+          </div>
+          <div className="glass-card kpi">
+            <h3>SPF Failures</h3>
+            <span className={stats.spf_failures > 0 ? "kpi-value text-red" : "kpi-value text-gradient"}>{stats.spf_failures.toLocaleString()}</span>
+          </div>
+          <div className="glass-card kpi">
+            <h3>DKIM Failures</h3>
+            <span className={stats.dkim_failures > 0 ? "kpi-value text-orange" : "kpi-value text-gradient"}>{stats.dkim_failures.toLocaleString()}</span>
+          </div>
+          <div className="glass-card kpi">
+            <h3>Unauthorized Senders</h3>
+            <span className={stats.unauthorized_senders > 0 ? "kpi-value alert" : "kpi-value text-gradient"}>{stats.unauthorized_senders}</span>
+          </div>
+        </section>
+
         <section className="domains-section">
           <div className="glass-card full-width">
             <div className="card-header">
               <h3>Monitored Domains</h3>
-              <button className="action-btn">Add Domain</button>
+              <div className="add-domain-group">
+                <input 
+                  type="text" 
+                  placeholder="e.g. yourdomain.com" 
+                  className="text-input" 
+                  style={{ marginRight: '10px' }}
+                  value={newDomainName} 
+                  onChange={(e) => setNewDomainName(e.target.value)} 
+                />
+                <button className="action-btn" onClick={handleAddDomain}>Add Domain</button>
+              </div>
             </div>
             
             {loading ? (
@@ -105,20 +182,20 @@ function App() {
             ) : data.length === 0 ? (
                <div className="empty-state">
                   <h4>No domains monitored yet.</h4>
-                  <p>Configure your SMTP relay to forward DMARC reports or manually register a domain in the application above.</p>
+                  <p>Register a domain above to start gathering metrics.</p>
                </div>
             ) : (
               <table className="modern-table">
                 <thead>
                   <tr>
                     <th>Domain Name</th>
-                    <th>Active Policy</th>
+                    <th>Configured DMARC Policy</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.map((domain, i) => (
-                    <tr key={i}>
+                  {data.map((domain) => (
+                    <tr key={domain.id}>
                       <td className="font-semibold">{domain.name}</td>
                       <td><span className={`badge policy-${domain.dmarc_policy || 'none'}`}>p={domain.dmarc_policy || 'none'}</span></td>
                       <td><button className="view-btn">Inspect</button></td>
@@ -131,10 +208,25 @@ function App() {
         </section>
       </main>
 
-      {/* Admin Settings Modal */}
+      {uploadOpen && (
+        <div className="modal-overlay">
+          <div className="glass-card modal-content" style={{ padding: '2rem' }}>
+             <div className="modal-header">
+               <h2>Upload DMARC Report File</h2>
+               <button onClick={() => setUploadOpen(false)} className="close-btn">&times;</button>
+             </div>
+             <p style={{marginBottom: '1rem', color: 'var(--text-secondary)'}}>
+               Upload a raw .xml or compressed .xml.gz / .zip Aggregate Report manually to bypass the SMTP relay integration lock for immediate evaluation.
+             </p>
+             <input type="file" className="file-input" accept=".xml,.gz,.zip" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} />
+             <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={handleFileUpload}>Process File</button>
+          </div>
+        </div>
+      )}
+
       {settingsOpen && (
         <div className="modal-overlay">
-          <div className="glass-card modal-content">
+          <div className="glass-card modal-content" style={{ padding: '2rem' }}>
              <div className="modal-header">
                <h2>Admin Settings</h2>
                <button onClick={() => setSettingsOpen(false)} className="close-btn">&times;</button>
