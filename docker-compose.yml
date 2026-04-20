@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=dmarc_admin
+      - POSTGRES_PASSWORD=secure_dmarc_pass
+      - POSTGRES_DB=dmarc_monitor
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - dmarc-backend
+
+  redis:
+    image: redis:alpine
+    networks:
+      - dmarc-backend
+
+  api:
+    build: ./api
+    environment:
+      - DB_DSN=postgresql://dmarc_admin:secure_dmarc_pass@postgres:5432/dmarc_monitor
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=change_me_in_production
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - dmarc-backend
+      - dmarc-frontend
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    networks:
+      - dmarc-frontend
+
+  smtp-ingester:
+    build: ./smtp-ingester
+    environment:
+      - BROKER_URL=redis://redis:6379/0
+      - RECIPIENT_DOMAINS=report.dmarc.domain.com
+    ports:
+      - "2525:2525" # Expose SMTP to external MTAs (mapping 25 on host directly may require root if run bare, we use 2525)
+    volumes:
+      - raw-payloads:/data/raw
+    networks:
+      - dmarc-backend
+
+  dmarc-parser:
+    build: ./dmarc-parser
+    environment:
+      - BROKER_URL=redis://redis:6379/0
+      - DB_DSN=postgresql://dmarc_admin:secure_dmarc_pass@postgres:5432/dmarc_monitor
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - raw-payloads:/data/raw
+    networks:
+      - dmarc-backend
+
+networks:
+  dmarc-backend:
+    driver: bridge
+  dmarc-frontend:
+    driver: bridge
+
+volumes:
+  pgdata:
+  raw-payloads:
