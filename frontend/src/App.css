@@ -482,6 +482,21 @@ nav {
   object-fit: contain;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.sortable-header:hover {
+  color: var(--accent-blue);
+}
+
 .clickable-row {
   cursor: pointer;
   transition: background 0.2s linear;
