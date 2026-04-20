@@ -1,121 +1,103 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import './App.css';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [data, setData] = useState<{ id: number, name: string, policy: string, status: string }[]>([]);
+
+  useEffect(() => {
+    // Stub data to simulate what the API will eventually return
+    setData([
+      { id: 1, name: 'eidolf.de', policy: 'reject', status: 'Optimal' },
+      { id: 2, name: 'marketing.eidolf.de', policy: 'quarantine', status: 'Warning' },
+      { id: 3, name: 'legacy.eidolf.de', policy: 'none', status: 'Critical' },
+    ]);
+  }, []);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="dashboard-container">
+      <div className="ambient-background"></div>
+      
+      <header className="glass-header">
+        <div className="logo-section">
+          <div className="logo-orb"></div>
+          <h1>DMARC<span>Nexus</span></h1>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+        <nav>
+          <button className="nav-item active">Overview</button>
+          <button className="nav-item">Reports</button>
+          <button className="nav-item">Threat Intel</button>
+          <button className="nav-item">Settings</button>
+        </nav>
+        <div className="user-profile">AE</div>
+      </header>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <main className="dashboard-content">
+        <div className="hero-section">
+          <h2>Security Posture</h2>
+          <p>Real-time analytics across your monitored infrastructure</p>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        <section className="kpi-grid">
+          <div className="glass-card kpi">
+            <h3>Total Analyzed (24h)</h3>
+            <span className="kpi-value text-gradient">1.2M</span>
+          </div>
+          <div className="glass-card kpi">
+            <h3>SPF Failures</h3>
+            <span className="kpi-value text-red">4,812</span>
+          </div>
+          <div className="glass-card kpi">
+            <h3>DKIM Failures</h3>
+            <span className="kpi-value text-orange">2,109</span>
+          </div>
+          <div className="glass-card kpi">
+            <h3>Unauthorized Senders</h3>
+            <span className="kpi-value alert">342 IPs</span>
+          </div>
+        </section>
+
+        <section className="domains-section">
+          <div className="glass-card full-width">
+            <div className="card-header">
+              <h3>Monitored Domains</h3>
+              <button className="action-btn">Add Domain</button>
+            </div>
+            
+            <table className="modern-table">
+              <thead>
+                <tr>
+                  <th>Domain Name</th>
+                  <th>Active Policy</th>
+                  <th>Health Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map(domain => (
+                  <tr key={domain.id}>
+                    <td className="font-semibold">{domain.name}</td>
+                    <td>
+                      <span className={`badge policy-${domain.policy}`}>
+                        p={domain.policy}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`status-indicator ${domain.status.toLowerCase()}`}>
+                        {domain.status}
+                      </span>
+                    </td>
+                    <td>
+                      <button className="view-btn">Inspect</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
 }
 
-export default App
+export default App;
