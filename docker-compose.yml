@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     environment:
       - POSTGRES_USER=dmarc_admin
       - POSTGRES_PASSWORD=secure_dmarc_pass
