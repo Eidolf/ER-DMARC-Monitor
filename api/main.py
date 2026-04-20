@@ -8,7 +8,5 @@ def health_check():
 
 @app.get("/domains")
 def get_domains():
-    # Return stub data
-    return [
-        {"id": 1, "name": "example.com", "dmarc_policy": "reject"}
-    ]
+    # Return empty data until database logic is implemented
+    return []
