@@ -221,8 +221,50 @@ function App() {
         </main>
       ) : (
         <main className="dashboard-content">
-          <div className="hero-section"><h2>System Help</h2><p>Documentation</p></div>
-          <button className="action-btn" onClick={() => setView('overview')}>Back</button>
+          <div className="hero-section">
+            <h2>User Manual & Documentation</h2>
+            <p>Understanding the ER-DMARC-Monitor and its workflows</p>
+          </div>
+          
+          <div className="help-grid">
+            <div className="help-card">
+              <div className="help-icon-box">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <h4>Overview & KPIs</h4>
+              </div>
+              <p>The dashboard provides a high-level view of your DMARC health. 
+              <strong> Total Analyzed</strong> shows the sum of all email counts in uploaded reports. 
+              <strong> Failures</strong> indicate emails that failed SPF or DKIM checks. 
+              <strong> Unauthorized Senders</strong> identifies unique source IPs that failed both SPF and DKIM.</p>
+            </div>
+            <div className="help-card">
+              <div className="help-icon-box">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <h4>Deep Analysis (Inspect)</h4>
+              </div>
+              <p>Click <strong>Inspect</strong> to open a domain-specific forensic view. 
+              This view calculates a Security Score, identifies Top Senders, and flags suspicious unauthorized traffic. 
+              You can click on individual rows to see <strong>Forensic Auth Details</strong> (SPF/DKIM domains and results). 
+              Use the <strong>Reporters</strong> tab to see which organizations are sending reports.</p>
+            </div>
+            <div className="help-card">
+              <div className="help-icon-box">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <h4>Admin & Management</h4>
+              </div>
+              <p>In the <strong>Admin Settings</strong>, you can add or remove monitored domains. 
+              You can also customize the system title and color theme, and upload your own company logo.</p>
+            </div>
+            <div className="help-card">
+              <div className="help-icon-box">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <h4>Report Upload</h4>
+              </div>
+              <p>You can manually inject multiple DMARC Aggregate Reports at once. 
+              The system supports <strong>.xml</strong>, <strong>.gz</strong>, or <strong>.zip</strong> formats and handles duplicates automatically.</p>
+            </div>
+          </div>
+          <button className="action-btn" style={{marginTop: '2rem'}} onClick={() => setView('overview')}>Back to Dashboard</button>
         </main>
       )}
 
