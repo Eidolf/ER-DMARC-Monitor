@@ -340,7 +340,61 @@ function App() {
         <div className="modal-overlay">
           <div className="glass-card modal-content wide-modal">
              <div className="modal-header"><h2>Settings</h2><button onClick={() => setSettingsOpen(false)} className="close-btn">&times;</button></div>
-             <div className="analysis-grid"><div className="analysis-col"><h4>Domains</h4><div className="add-domain-group"><input type="text" placeholder="name..." className="text-input" value={newDomainName} onChange={(e) => setNewDomainName(e.target.value)} /><button className="action-btn" onClick={handleAddDomain}>Add</button></div><table className="modern-table"><tbody>{data.map(d => (<tr key={d.id}><td>{d.name}</td><td><button className="delete-btn" onClick={() => handleDeleteDomain(d.id)}>Del</button></td></tr>))}</tbody></table></div></div>
+             <div className="analysis-grid">
+               <div className="analysis-col">
+                 <h4>Managed Infrastructure</h4>
+                 <div className="add-domain-group" style={{marginBottom: '1rem'}}>
+                    <input 
+                    type="text" 
+                    placeholder="Domain name..." 
+                    className="text-input" 
+                    style={{ marginRight: '10px', width: '250px' }}
+                    value={newDomainName} 
+                    onChange={(e) => setNewDomainName(e.target.value)} 
+                    />
+                    <button className="action-btn" onClick={handleAddDomain}>Add Domain</button>
+                 </div>
+                 <table className="modern-table">
+                   <thead>
+                     <tr>
+                       <th>Domain</th>
+                       <th>Action</th>
+                     </tr>
+                   </thead>
+                   <tbody>
+                     {data.map(d => (
+                       <tr key={d.id}>
+                         <td>{d.name}</td>
+                         <td><button className="delete-btn" onClick={() => handleDeleteDomain(d.id)}>Delete</button></td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
+               </div>
+
+               <div className="analysis-col side-panel">
+                 <h4 style={{marginBottom: '1rem'}}>Appearance Settings</h4>
+                 <div className="form-group">
+                   <label>Title Part 1</label>
+                   <div className="input-group">
+                      <input type="text" className="text-input" value={settings.titlePart1} onChange={e => setSettings({...settings, titlePart1: e.target.value})} />
+                      <input type="color" className="color-picker" value={settings.colorPart1} onChange={e => setSettings({...settings, colorPart1: e.target.value})} />
+                   </div>
+                 </div>
+                 <div className="form-group">
+                   <label>Title Part 2</label>
+                   <div className="input-group">
+                      <input type="text" className="text-input" value={settings.titlePart2} onChange={e => setSettings({...settings, titlePart2: e.target.value})} />
+                      <input type="color" className="color-picker" value={settings.colorPart2} onChange={e => setSettings({...settings, colorPart2: e.target.value})} />
+                   </div>
+                 </div>
+                 <div className="form-group">
+                   <label>System Logo</label>
+                   <input type="file" accept="image/*" onChange={handleLogoUpload} className="file-input" />
+                   {settings.logoUrl && <div className="logo-preview-box"><img src={settings.logoUrl} alt="Preview" className="logo-preview" /></div>}
+                 </div>
+               </div>
+             </div>
           </div>
         </div>
       )}
