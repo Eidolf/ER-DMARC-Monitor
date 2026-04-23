@@ -261,18 +261,70 @@ function Dashboard() {
       )}
 
       {view === 'help' && (
-        <main className="dashboard-content">
-          <div className="hero-section"><h2>User Manual & Documentation</h2><p>Understanding the ER-DMARC-Monitor and its workflows</p></div>
-          <div className="help-grid">
-            <div className="help-card">
-              <div className="help-icon-box">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                <h4>Overview & KPIs</h4>
-              </div>
-              <p>The dashboard provides a high-level view of your DMARC health. Failures indicate emails that failed SPF or DKIM checks.</p>
-            </div>
+        <main className="dashboard-content docs-page">
+          <div className="hero-section">
+            <h2>System Documentation & Guides</h2>
+            <p>Comprehensive instructions for administrators and analysts</p>
           </div>
-          <button className="action-btn" style={{marginTop: '2rem'}} onClick={() => setView('overview')}>Back to Dashboard</button>
+          
+          <div className="docs-grid">
+            <section className="docs-section glass-card">
+              <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '10px'}}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> 1. Authentication & Security</h3>
+              <div className="docs-item">
+                <h4>Microsoft Entra ID (SSO)</h4>
+                <p>To enable Single Sign-On, navigate to <strong>Settings > Authentication</strong>. You will need:</p>
+                <ul>
+                  <li><strong>Tenant ID:</strong> Your Azure Directory ID.</li>
+                  <li><strong>Client ID:</strong> The Application ID from your Azure App Registration.</li>
+                  <li><strong>Client Secret:</strong> A valid client secret (stored securely).</li>
+                </ul>
+                <p className="note">Note: Ensure the Redirect URI in Azure is set to <code>https://your-domain/api/auth/sso/callback</code></p>
+              </div>
+              <div className="docs-item">
+                <h4>Multi-Factor Authentication (MFA)</h4>
+                <p>Users can activate MFA in their <strong>Profile</strong>. Admins can enforce MFA for specific roles in the Global Settings.</p>
+                <ul>
+                  <li>Use any TOTP app (Microsoft Authenticator, Google Authenticator).</li>
+                  <li><strong>Recovery Codes:</strong> Always save the 8-digit codes generated during setup. They are the only way to regain access if the device is lost.</li>
+                </ul>
+              </div>
+            </section>
+
+            <section className="docs-section glass-card">
+              <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '10px'}}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 2. Admin Configuration</h3>
+              <div className="docs-item">
+                <h4>Branding & Identity</h4>
+                <p>Customize the look of your ER-DMARC-Monitor in <strong>Settings > Branding</strong>:</p>
+                <ul>
+                  <li><strong>Title Segments:</strong> Split the main title into two parts with independent colors for a premium look.</li>
+                  <li><strong>Custom Logo:</strong> Provide a URL to your corporate logo to replace the default orb.</li>
+                </ul>
+              </div>
+              <div className="docs-item">
+                <h4>Domain Management</h4>
+                <p>Add the domains you wish to monitor in <strong>Settings > Domains</strong>. This will enable the system to filter and categorize incoming DMARC reports correctly.</p>
+              </div>
+            </section>
+
+            <section className="docs-section glass-card">
+              <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '10px'}}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg> 3. Data & Analysis</h3>
+              <div className="docs-item">
+                <h4>Manual Report Upload</h4>
+                <p>Use the <strong>Upload Reports</strong> button in the main navigation. You can drag and drop multiple XML, .gz, or .zip files. The system automatically detects and skips duplicate reports based on the unique Report ID.</p>
+              </div>
+              <div className="docs-item">
+                <h4>Forensic Inspection</h4>
+                <p>Click <strong>Inspect</strong> on any domain to open the deep analysis view:</p>
+                <ul>
+                  <li><strong>Traffic Log:</strong> View every sending IP, its volume, and authentication status. Expand a row to see detailed SPF/DKIM results.</li>
+                  <li><strong>Reporters:</strong> See which organizations (Google, Microsoft, etc.) are sending reports about your domain.</li>
+                </ul>
+              </div>
+            </section>
+          </div>
+          <div style={{display: 'flex', justifyContent: 'center', marginTop: '3rem'}}>
+            <button className="action-btn primary-btn" onClick={() => setView('overview')}>Return to Dashboard</button>
+          </div>
         </main>
       )}
 

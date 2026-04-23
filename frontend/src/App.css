@@ -976,3 +976,75 @@ nav {
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
+/* Documentation Page Styles */
+.docs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.docs-section {
+  padding: 2.5rem;
+  height: 100%;
+}
+
+.docs-section h3 {
+  display: flex;
+  align-items: center;
+  font-size: 1.3rem;
+  margin-bottom: 2rem;
+  color: var(--accent-blue);
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 1rem;
+}
+
+.docs-item {
+  margin-bottom: 2.5rem;
+}
+
+.docs-item:last-child {
+  margin-bottom: 0;
+}
+
+.docs-item h4 {
+  color: var(--text-primary);
+  margin-bottom: 0.8rem;
+  font-size: 1.1rem;
+}
+
+.docs-item p {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  margin-bottom: 1rem;
+}
+
+.docs-item ul {
+  padding-left: 1.5rem;
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.docs-item li {
+  margin-bottom: 0.6rem;
+}
+
+.docs-item code {
+  background: rgba(255,255,255,0.1);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.note {
+  background: rgba(59, 130, 246, 0.05);
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-blue);
+  margin-top: 1.5rem;
+  font-size: 0.85rem !important;
+  color: var(--text-primary) !important;
+}
+
