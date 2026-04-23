@@ -15,6 +15,9 @@ interface GlobalSettings {
   color_part1: string;
   color_part2: string;
   logo_url: string | null;
+  smtp_test_mode_enabled: boolean;
+  allowed_test_recipients: string;
+  test_message_retention_days: number;
 }
 
 interface AuditLog {
@@ -29,7 +32,7 @@ interface AuditLog {
 
 const Settings: React.FC = () => {
   const { token, role } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'domains' | 'branding' | 'auth' | 'audit'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'domains' | 'branding' | 'auth' | 'audit' | 'smtp'>('profile');
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
   const [domains, setDomains] = useState<{id: number, name: string}[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -46,13 +49,21 @@ const Settings: React.FC = () => {
   // Domain states
   const [newDomainName, setNewDomainName] = useState('');
 
+  // SMTP Test states
+  const [testResults, setTestResults] = useState<any[]>([]);
+  const [testDomain, setTestDomain] = useState('');
+  const [testRecipient, setTestRecipient] = useState('');
+  const [testType, setTestType] = useState('RUA');
+  const [triggering, setTriggering] = useState(false);
+
   const isAdmin = role === 'Admin';
 
   useEffect(() => {
     if (isAdmin) {
-      if (activeTab === 'auth' || activeTab === 'branding') fetchSettings();
+      if (activeTab === 'auth' || activeTab === 'branding' || activeTab === 'smtp') fetchSettings();
       if (activeTab === 'audit') fetchAuditLogs();
       if (activeTab === 'domains') fetchDomains();
+      if (activeTab === 'smtp') fetchTestResults();
     }
   }, [activeTab]);
 
@@ -75,6 +86,31 @@ const Settings: React.FC = () => {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) setAuditLogs(await res.json());
+  };
+
+  const fetchTestResults = async () => {
+    const res = await fetch('/api/admin/smtp/test-results', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) setTestResults(await res.json());
+  };
+
+  const handleTriggerTest = async () => {
+    if (!testDomain || !testRecipient) return;
+    setTriggering(true);
+    const res = await fetch(`/api/admin/smtp/test-trigger?domain=${testDomain}&recipient=${testRecipient}&type=${testType}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    setTriggering(false);
+    const data = await res.json();
+    if (res.ok) {
+      setMessage({ type: 'success', text: 'Test message triggered successfully' });
+      // Poll for results after a delay
+      setTimeout(fetchTestResults, 3000);
+    } else {
+      setMessage({ type: 'error', text: data.detail || 'Failed to trigger test' });
+    }
   };
 
   const handleSaveSettings = async () => {
@@ -179,6 +215,7 @@ const Settings: React.FC = () => {
           <>
             <button className={activeTab === 'domains' ? 'active' : ''} onClick={() => setActiveTab('domains')}>Domains</button>
             <button className={activeTab === 'auth' ? 'active' : ''} onClick={() => setActiveTab('auth')}>Authentication</button>
+            <button className={activeTab === 'smtp' ? 'active' : ''} onClick={() => setActiveTab('smtp')}>SMTP Test</button>
             <button className={activeTab === 'branding' ? 'active' : ''} onClick={() => setActiveTab('branding')}>Branding</button>
             <button className={activeTab === 'audit' ? 'active' : ''} onClick={() => setActiveTab('audit')}>Security Audit</button>
           </>
@@ -367,6 +404,76 @@ const Settings: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'smtp' && settings && (
+          <div className="settings-section">
+            <h3>SMTP Ingestion Test Framework</h3>
+            <p className="subtitle">Verify reachability and end-to-end processing without production traffic.</p>
+            
+            <div className="settings-subsection">
+              <h4>Test Mode Configuration</h4>
+              <div className="toggle-group">
+                <label>
+                  <input type="checkbox" checked={settings.smtp_test_mode_enabled} onChange={e => setSettings({...settings, smtp_test_mode_enabled: e.target.checked})} />
+                  Enable SMTP Test Mode
+                </label>
+                <div className="form-group" style={{marginTop: '1rem'}}>
+                  <label>Allowed Test Recipients (Comma separated)</label>
+                  <input type="text" className="text-input" placeholder="report@dmarc.domain.com" value={settings.allowed_test_recipients || ''} onChange={e => setSettings({...settings, allowed_test_recipients: e.target.value})} />
+                </div>
+                <button onClick={handleSaveSettings} className="action-btn">Update Test Configuration</button>
+              </div>
+            </div>
+
+            <div className="settings-subsection">
+              <h4>Trigger Portal-Based Test</h4>
+              <div className="glass-card" style={{padding: '1.5rem', background: 'rgba(255,255,255,0.02)'}}>
+                <div className="form-group">
+                  <label>Test Domain</label>
+                  <input type="text" className="text-input" placeholder="test-domain.com" value={testDomain} onChange={e => setTestDomain(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Target Recipient</label>
+                  <input type="text" className="text-input" placeholder="report@dmarc.domain.com" value={testRecipient} onChange={e => setTestRecipient(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Report Type</label>
+                  <select className="text-input" value={testType} onChange={e => setTestType(e.target.value)}>
+                    <option value="RUA">Aggregate (RUA)</option>
+                    <option value="RUF">Forensic (RUF)</option>
+                  </select>
+                </div>
+                <button onClick={handleTriggerTest} disabled={triggering} className="action-btn primary-btn" style={{width: '100%'}}>{triggering ? 'Sending...' : 'Trigger SMTP Test Message'}</button>
+              </div>
+            </div>
+
+            <div className="settings-subsection">
+              <h4>Recent Test Results</h4>
+              <div className="scroll-box" style={{maxHeight: '300px'}}>
+                <table className="modern-table">
+                  <thead>
+                    <tr>
+                      <th>Time (End)</th>
+                      <th>Org Name</th>
+                      <th>Domain</th>
+                      <th>Report ID</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {testResults.map(res => (
+                      <tr key={res.id}>
+                        <td>{new Date(res.date_end).toLocaleString()}</td>
+                        <td>{res.org_name}</td>
+                        <td>{res.domain_name}</td>
+                        <td><code>{res.report_id}</code></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

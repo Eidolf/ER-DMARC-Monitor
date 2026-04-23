@@ -5,12 +5,16 @@ import io
 import traceback
 import sys
 import json
+import uuid
 from datetime import datetime
 from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlmodel import Session, create_engine, SQLModel, select, func
 from pydantic import BaseModel
 from defusedxml import ElementTree as ET
+import smtplib
+from email.message import EmailMessage
+from email.utils import formataddr
 
 from models import Domain, ReportMetadata, ReportRecord, User, UserRole, SystemSettings, LoginAudit
 from auth import (
@@ -395,6 +399,7 @@ def get_domain_records(
         select(ReportRecord)
         .join(ReportMetadata)
         .where(func.lower(ReportMetadata.domain_name) == domain_name.lower())
+        .where(ReportMetadata.is_test == False)
         .order_by(ReportMetadata.date_end.desc())
     )
     results = session.exec(statement).all()
@@ -421,7 +426,8 @@ def get_report_stats(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
-    records = session.exec(select(ReportRecord)).all()
+    statement = select(ReportRecord).join(ReportMetadata).where(ReportMetadata.is_test == False)
+    records = session.exec(statement).all()
     total_analyzed = sum(r.count for r in records)
     spf_failures = sum(r.count for r in records if not r.spf_pass)
     dkim_failures = sum(r.count for r in records if not r.dkim_pass)
@@ -522,4 +528,108 @@ async def upload_reports(
             
     session.commit()
     return {"results": results}
+
+# --- SMTP Testing Endpoints ---
+
+SAMPLE_RUA_XML = """<?xml version="1.0" encoding="UTF-8" ?>
+<feedback>
+  <report_metadata>
+    <org_name>TEST-SENDER</org_name>
+    <email>noreply@test.com</email>
+    <report_id>TEST-{id}</report_id>
+    <date_range>
+      <begin>{begin}</begin>
+      <end>{end}</end>
+    </date_range>
+  </report_metadata>
+  <policy_published>
+    <domain>{domain}</domain>
+    <adkim>r</adkim>
+    <aspf>r</aspf>
+    <p>quarantine</p>
+    <sp>quarantine</sp>
+    <pct>100</pct>
+  </policy_published>
+  <record>
+    <row>
+      <source_ip>1.2.3.4</source_ip>
+      <count>1</count>
+      <policy_evaluated>
+        <disposition>none</disposition>
+        <dkim>pass</dkim>
+        <spf>pass</spf>
+      </policy_evaluated>
+    </row>
+    <identifiers>
+      <header_from>{domain}</header_from>
+    </identifiers>
+    <auth_results>
+      <dkim>
+        <domain>{domain}</domain>
+        <result>pass</result>
+        <selector>default</selector>
+      </dkim>
+      <spf>
+        <domain>{domain}</domain>
+        <scope>mfrom</scope>
+        <result>pass</result>
+      </spf>
+    </auth_results>
+  </record>
+</feedback>
+"""
+
+@app.post("/admin/smtp/test-trigger")
+def trigger_smtp_test(
+    domain: str,
+    recipient: str,
+    type: str = "RUA",
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    settings = session.exec(select(SystemSettings)).first()
+    if not settings.smtp_test_mode_enabled:
+        raise HTTPException(status_code=403, detail="SMTP Test Mode is disabled in Global Settings")
+    
+    # Validation
+    allowed = (settings.allowed_test_recipients or "").split(",")
+    if recipient not in [a.strip() for a in allowed if a.strip()]:
+        raise HTTPException(status_code=400, detail=f"Recipient {recipient} is not in the allowed test list")
+
+    try:
+        msg = EmailMessage()
+        msg['Subject'] = f"Report Domain: {domain} Submit Date: {datetime.now().strftime('%Y-%m-%d')}"
+        msg['From'] = "dmarc-test@internal.system"
+        msg['To'] = recipient
+        msg['X-DMARC-Test'] = "true"
+        
+        xml_content = SAMPLE_RUA_XML.format(
+            id=str(uuid.uuid4())[:8],
+            begin=int(datetime.now().timestamp()) - 86400,
+            end=int(datetime.now().timestamp()),
+            domain=domain
+        )
+        
+        msg.add_attachment(
+            xml_content.encode('utf-8'),
+            maintype='application',
+            subtype='xml',
+            filename=f"google.com!{domain}!1234!5678.xml"
+        )
+        
+        # Connect to local ingester
+        with smtplib.SMTP("smtp-ingester", 2525) as server:
+            server.send_message(msg)
+            
+        return {"status": "success", "detail": "Test message sent to SMTP ingester"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+@app.get("/admin/smtp/test-results")
+def get_test_results(
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    results = session.exec(select(ReportMetadata).where(ReportMetadata.is_test == True).order_by(ReportMetadata.date_end.desc()).limit(20)).all()
+    return results
 
