@@ -2,6 +2,32 @@ from __future__ import annotations
 from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from enum import Enum
+
+class UserRole(str, Enum):
+    ADMIN = "Admin"
+    ANALYST = "Analyst"
+    READ_ONLY = "Read-only"
+
+class User(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    email: str = Field(index=True, unique=True)
+    username: str = Field(index=True, unique=True)
+    hashed_password: str | None = Field(default=None)
+    role: UserRole = Field(default=UserRole.READ_ONLY)
+    is_active: bool = Field(default=True)
+    
+    # MFA
+    mfa_enabled: bool = Field(default=False)
+    mfa_secret: str | None = Field(default=None)
+    
+    # SSO (Entra ID)
+    sso_provider: str | None = Field(default=None) # "entra"
+    sso_id: str | None = Field(default=None, index=True) # Entra object ID
+    
+    # Audit
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_login: datetime | None = Field(default=None)
 
 class Domain(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -37,6 +63,3 @@ class ReportRecord(SQLModel, table=True):
     
     report: ReportMetadata = Relationship(sa_relationship=relationship("ReportMetadata", back_populates="records"))
 
-# Database initialization logic would go here
-# engine = create_engine(DB_DSN)
-# SQLModel.metadata.create_all(engine)

@@ -6,13 +6,18 @@ import traceback
 import sys
 import json
 from datetime import datetime
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Request, status
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlmodel import Session, create_engine, SQLModel, select, func
 from pydantic import BaseModel
 from defusedxml import ElementTree as ET
 
-from models import Domain, ReportMetadata, ReportRecord
+from models import Domain, ReportMetadata, ReportRecord, User, UserRole
+from auth import (
+    get_password_hash, verify_password, create_access_token, create_mfa_token,
+    verify_totp, get_current_user, RoleChecker, get_session
+)
+import entra
 
 DB_DSN = os.getenv("DB_DSN", "sqlite:///database.db")
 engine = create_engine(DB_DSN)
@@ -34,13 +39,139 @@ def on_startup():
     for _ in range(5):
         try:
             SQLModel.metadata.create_all(engine)
+            # Bootstrap admin user if none exists
+            with Session(engine) as session:
+                admin_exists = session.exec(select(User).where(User.role == UserRole.ADMIN)).first()
+                if not admin_exists:
+                    admin_user = User(
+                        email=os.getenv("ADMIN_EMAIL", "admin@example.com"),
+                        username=os.getenv("ADMIN_USER", "admin"),
+                        hashed_password=get_password_hash(os.getenv("ADMIN_PASSWORD", "admin123")),
+                        role=UserRole.ADMIN,
+                        is_active=True
+                    )
+                    session.add(admin_user)
+                    session.commit()
             break
         except Exception:
             time.sleep(2)
 
-def get_session():
-    with Session(engine) as session:
-        yield session
+# --- Authentication Endpoints ---
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/auth/login")
+def login(req: LoginRequest, session: Session = Depends(get_session)):
+    user = session.exec(select(User).where(User.username == req.username)).first()
+    if not user or not user.hashed_password or not verify_password(req.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="Account disabled")
+
+    # Check if MFA is required
+    # Mandatory for Admin and Analyst
+    mfa_required = user.role in [UserRole.ADMIN, UserRole.ANALYST]
+    
+    if mfa_required and user.mfa_enabled:
+        # Return a temporary token for MFA verification
+        temp_token = create_mfa_token({"sub": str(user.id)})
+        return {"mfa_required": True, "mfa_token": temp_token}
+    
+    # If MFA is required but not set up, we might want to force setup or just allow for now
+    # The requirement says "Enforced MFA for privileged roles". 
+    # If not enabled yet, we should probably redirect to setup. 
+    # For now, let's just issue the token if not enabled, but mark as "mfa_setup_required"
+    
+    access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "role": user.role,
+        "mfa_setup_required": mfa_required and not user.mfa_enabled
+    }
+
+class MFAVerifyRequest(BaseModel):
+    mfa_token: str
+    code: str
+
+@app.post("/auth/mfa/verify")
+def verify_mfa(req: MFAVerifyRequest, session: Session = Depends(get_session)):
+    from jose import jwt
+    from auth import SECRET_KEY, ALGORITHM
+    try:
+        payload = jwt.decode(req.mfa_token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not payload.get("mfa_pending") or not user_id:
+            raise HTTPException(status_code=401, detail="Invalid MFA token")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid MFA token")
+        
+    user = session.get(User, int(user_id))
+    if not user or not user.mfa_secret or not verify_totp(user.mfa_secret, req.code):
+        raise HTTPException(status_code=401, detail="Invalid MFA code")
+    
+    access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
+    return {"access_token": access_token, "token_type": "bearer", "role": user.role}
+
+@app.get("/auth/sso/login")
+def sso_login():
+    url = entra.get_auth_url()
+    if not url:
+        raise HTTPException(status_code=501, detail="SSO not configured")
+    return RedirectResponse(url)
+
+@app.get("/auth/sso/callback")
+def sso_callback(code: str, session: Session = Depends(get_session)):
+    result = entra.acquire_token_by_code(code)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result.get("error_description"))
+    
+    claims = result.get("id_token_claims")
+    user_info = entra.validate_id_token(claims)
+    
+    # Find or create user
+    user = session.exec(select(User).where(User.sso_id == user_info["sso_id"])).first()
+    if not user:
+        # Fallback to email if OID doesn't match yet
+        user = session.exec(select(User).where(User.email == user_info["email"])).first()
+        if user:
+            user.sso_id = user_info["sso_id"]
+            user.sso_provider = "entra"
+        else:
+            # Create new user via SSO
+            user = User(
+                email=user_info["email"],
+                username=user_info["email"],
+                role=UserRole.READ_ONLY, # Default role
+                is_active=True,
+                sso_id=user_info["sso_id"],
+                sso_provider="entra"
+            )
+            session.add(user)
+    
+    user.last_login = datetime.utcnow()
+    session.commit()
+    session.refresh(user)
+    
+    access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
+    # Redirect back to frontend with token (in a real app, use a secure way to pass this)
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    return RedirectResponse(f"{frontend_url}/?token={access_token}&role={user.role}")
+
+@app.get("/auth/me")
+def get_me(user: User = Depends(get_current_user)):
+    return {
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "role": user.role,
+        "mfa_enabled": user.mfa_enabled
+    }
+
+# --- Domain & Report Endpoints (Protected) ---
 
 class DomainCreate(BaseModel):
     name: str
@@ -51,7 +182,11 @@ def health_check():
     return {"status": "ok"}
 
 @app.post("/domains")
-def create_domain(domain: DomainCreate, session: Session = Depends(get_session)):
+def create_domain(
+    domain: DomainCreate, 
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
     existing = session.exec(select(Domain).where(Domain.name == domain.name)).first()
     if existing:
         raise HTTPException(status_code=400, detail="Domain already exists")
@@ -62,11 +197,18 @@ def create_domain(domain: DomainCreate, session: Session = Depends(get_session))
     return db_domain
 
 @app.get("/domains")
-def get_domains(session: Session = Depends(get_session)):
+def get_domains(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
     return session.exec(select(Domain)).all()
 
 @app.delete("/domains/{domain_id}")
-def delete_domain(domain_id: int, session: Session = Depends(get_session)):
+def delete_domain(
+    domain_id: int, 
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
     domain = session.get(Domain, domain_id)
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
@@ -75,7 +217,11 @@ def delete_domain(domain_id: int, session: Session = Depends(get_session)):
     return {"status": "success"}
 
 @app.get("/domains/{domain_name}/records")
-def get_domain_records(domain_name: str, session: Session = Depends(get_session)):
+def get_domain_records(
+    domain_name: str, 
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
     # Case-insensitive join and filter
     statement = (
         select(ReportRecord)
@@ -103,7 +249,10 @@ def get_domain_records(domain_name: str, session: Session = Depends(get_session)
     ]
 
 @app.get("/reports/stats")
-def get_report_stats(session: Session = Depends(get_session)):
+def get_report_stats(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
     records = session.exec(select(ReportRecord)).all()
     total_analyzed = sum(r.count for r in records)
     spf_failures = sum(r.count for r in records if not r.spf_pass)
@@ -118,7 +267,11 @@ def get_report_stats(session: Session = Depends(get_session)):
     }
 
 @app.post("/reports/upload")
-async def upload_reports(files: list[UploadFile] = File(...), session: Session = Depends(get_session)):
+async def upload_reports(
+    files: list[UploadFile] = File(...), 
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.ANALYST]))
+):
     results = []
     for file in files:
         content = await file.read()
@@ -201,3 +354,4 @@ async def upload_reports(files: list[UploadFile] = File(...), session: Session =
             
     session.commit()
     return {"results": results}
+

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './App.css';
+import { AuthProvider, useAuth } from './AuthContext';
+import Login from './Login';
 
 interface AppSettings {
   titlePart1: string;
@@ -58,7 +60,8 @@ const SortIcon = ({ active, direction }: { active: boolean; direction: 'asc' | '
   );
 };
 
-function App() {
+function Dashboard() {
+  const { token, role, logout } = useAuth();
   const [data, setData] = useState<{ id: number, name: string, dmarc_policy: string }[]>([]);
   const [stats, setStats] = useState<Stats>({ total_analyzed: 0, spf_failures: 0, dkim_failures: 0, unauthorized_senders: 0 });
   const [loading, setLoading] = useState(true);
@@ -91,16 +94,32 @@ function App() {
 
   useEffect(() => { localStorage.setItem('er-dmarc-settings', JSON.stringify(settings)); }, [settings]);
 
+  const authFetch = (url: string, options: any = {}) => {
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': `Bearer ${token}`
+      }
+    }).then(res => {
+      if (res.status === 401) {
+        logout();
+        throw new Error("Session expired");
+      }
+      return res;
+    });
+  };
+
   const loadData = () => {
-    fetch('/api/domains').then(res => res.json()).then(json => setData(Array.isArray(json) ? json : [])).catch(err => console.error(err));
-    fetch('/api/reports/stats').then(res => res.json()).then(json => setStats(json)).catch(err => console.error(err)).finally(() => setLoading(false));
+    authFetch('/api/domains').then(res => res.json()).then(json => setData(Array.isArray(json) ? json : [])).catch(err => console.error(err));
+    authFetch('/api/reports/stats').then(res => res.json()).then(json => setStats(json)).catch(err => console.error(err)).finally(() => setLoading(false));
   };
 
   useEffect(() => { loadData(); }, []);
 
   const handleAddDomain = () => {
     if (!newDomainName) return;
-    fetch('/api/domains', {
+    authFetch('/api/domains', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newDomainName, dmarc_policy: "none" })
@@ -109,7 +128,7 @@ function App() {
 
   const handleDeleteDomain = (id: number) => {
     if (!window.confirm("Delete domain?")) return;
-    fetch(`/api/domains/${id}`, { method: 'DELETE' }).then(() => loadData());
+    authFetch(`/api/domains/${id}`, { method: 'DELETE' }).then(() => loadData());
   };
 
   const handleInspect = (domainName: string) => {
@@ -119,7 +138,7 @@ function App() {
     setExpandedRecordId(null);
     setSearchQuery('');
     setSortConfig({ key: 'date', direction: 'desc' });
-    fetch(`/api/domains/${domainName}/records`)
+    authFetch(`/api/domains/${domainName}/records`)
       .then(res => res.json())
       .then(json => { if (Array.isArray(json)) setDetailedRecords(json); })
       .catch(err => console.error(err));
@@ -129,7 +148,7 @@ function App() {
     if (!uploadFiles) return;
     const formData = new FormData();
     for(let i=0; i<uploadFiles.length; i++) formData.append('files', uploadFiles[i]);
-    fetch('/api/reports/upload', { method: 'POST', body: formData }).then(() => { setUploadOpen(false); loadData(); });
+    authFetch('/api/reports/upload', { method: 'POST', body: formData }).then(() => { setUploadOpen(false); loadData(); });
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,6 +197,9 @@ function App() {
   });
   const reporters = [...reporterMap.entries()].filter(([name]) => name.toLowerCase().includes(searchQuery.toLowerCase())).sort((a, b) => b[1].count - a[1].count);
 
+  const isAdmin = role === 'Admin';
+  const isAnalyst = role === 'Analyst' || isAdmin;
+
   return (
     <div className="dashboard-container">
       <div className="ambient-background"></div>
@@ -191,11 +213,16 @@ function App() {
         </div>
         <nav>
           <button className={`nav-item ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>Overview</button>
-          <button className="nav-item" onClick={() => setUploadOpen(true)}>Upload Reports</button>
+          {isAnalyst && <button className="nav-item" onClick={() => setUploadOpen(true)}>Upload Reports</button>}
           <button className={`nav-item ${view === 'help' ? 'active' : ''}`} onClick={() => setView('help')}>Help & Docs</button>
-          <button className="nav-item" onClick={() => setSettingsOpen(true)}>Admin Settings</button>
+          {isAdmin && <button className="nav-item" onClick={() => setSettingsOpen(true)}>Admin Settings</button>}
         </nav>
-        <div className="user-profile">AE</div>
+        <div className="user-section">
+          <div className="user-profile" title={`Role: ${role}`}>{role?.substring(0, 2).toUpperCase()}</div>
+          <button className="logout-btn" onClick={logout} title="Sign Out">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+        </div>
       </header>
 
       {view === 'overview' ? (
@@ -402,4 +429,19 @@ function App() {
   );
 }
 
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+function AppContent() {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Login />;
+  return <Dashboard />;
+}
+
 export default App;
+

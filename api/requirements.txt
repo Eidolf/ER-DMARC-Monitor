@@ -5,3 +5,8 @@ psycopg==3.1.18
 redis==5.0.3
 python-multipart==0.0.9
 defusedxml==0.7.1
+python-jose[cryptography]==3.3.0
+passlib[argon2]==1.7.4
+pyotp==2.9.0
+msal==1.28.0
+python-dotenv==1.0.1
