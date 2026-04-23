@@ -268,7 +268,8 @@ nav {
   max-width: 500px;
 }
 .wide-modal {
-  max-width: 1000px;
+  max-width: 1200px;
+  width: 95%;
 }
 .scroll-box {
   max-height: 60vh;
@@ -347,7 +348,7 @@ nav {
 
 .analysis-grid {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: 2rem;
   margin-top: 1rem;
 }
@@ -355,6 +356,7 @@ nav {
 .analysis-col {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .side-panel {
