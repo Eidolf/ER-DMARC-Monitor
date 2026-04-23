@@ -12,7 +12,7 @@ from sqlmodel import Session, create_engine, SQLModel, select, func
 from pydantic import BaseModel
 from defusedxml import ElementTree as ET
 
-from models import Domain, ReportMetadata, ReportRecord, User, UserRole
+from models import Domain, ReportMetadata, ReportRecord, User, UserRole, SystemSettings, LoginAudit
 from auth import (
     get_password_hash, verify_password, create_access_token, create_mfa_token,
     verify_totp, get_current_user, RoleChecker, get_session
@@ -192,6 +192,14 @@ def get_activity(
     return audits
 
 # --- Updated Authentication Endpoints ---
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class MFAVerifyRequest(BaseModel):
+    mfa_token: str
+    code: str
 
 @app.post("/auth/login")
 def login(req: LoginRequest, request: Request, session: Session = Depends(get_session)):

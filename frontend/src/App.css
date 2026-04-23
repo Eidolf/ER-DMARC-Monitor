@@ -885,3 +885,36 @@ nav {
   color: var(--accent-blue);
 }
 
+.delete-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.85rem;
+}
+
+.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: translateY(-1px);
+}
+
+.qr-placeholder {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  display: inline-block;
+  margin: 1.5rem 0;
+  color: black;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.add-domain-group {
+  background: rgba(255,255,255,0.03);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-glass);
+}
+

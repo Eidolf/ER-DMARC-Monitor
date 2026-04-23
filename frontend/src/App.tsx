@@ -102,12 +102,34 @@ function Dashboard() {
       .catch(err => console.error(err));
   };
 
-  const handleFileUpload = () => {
+  const handleFileUpload = async () => {
     if (!uploadFiles) return;
     const formData = new FormData();
     for(let i=0; i<uploadFiles.length; i++) formData.append('files', uploadFiles[i]);
-    authFetch('/api/reports/upload', { method: 'POST', body: formData }).then(() => { setUploadOpen(false); loadData(); });
+    try {
+      const res = await authFetch('/api/reports/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      const successCount = data.results.filter((r: any) => r.status === 'success').length;
+      const skippedCount = data.results.filter((r: any) => r.status === 'skipped').length;
+      const errorCount = data.results.filter((r: any) => r.status === 'error').length;
+      
+      alert(`Upload complete: ${successCount} successful, ${skippedCount} skipped (duplicates), ${errorCount} errors.`);
+      setUploadOpen(false); 
+      loadData();
+    } catch (err) {
+      alert("Upload failed. See console for details.");
+    }
   };
+
+  const topSenders = useMemo(() => {
+    const counts = new Map<string, {count: number, pass: boolean}>();
+    detailedRecords.forEach(r => {
+      const curr = counts.get(r.source_ip) || {count: 0, pass: r.spf_pass && r.dkim_pass};
+      curr.count += r.count;
+      counts.set(r.source_ip, curr);
+    });
+    return [...counts.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, 5);
+  }, [detailedRecords]);
 
   const handleSort = (key: SortKey) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -122,8 +144,8 @@ function Dashboard() {
     );
     if (sortConfig.direction) {
       filtered.sort((a, b) => {
-        const valA = a[sortConfig.key];
-        const valB = b[sortConfig.key];
+        const valA = (a as any)[sortConfig.key];
+        const valB = (b as any)[sortConfig.key];
         if (typeof valA === 'string' && typeof valB === 'string') return sortConfig.direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
         if (typeof valA === 'number' && typeof valB === 'number') return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
         return 0;
@@ -216,7 +238,6 @@ function Dashboard() {
               </div>
               <p>The dashboard provides a high-level view of your DMARC health. Failures indicate emails that failed SPF or DKIM checks.</p>
             </div>
-            {/* ... other help cards ... */}
           </div>
           <button className="action-btn" style={{marginTop: '2rem'}} onClick={() => setView('overview')}>Back to Dashboard</button>
         </main>
@@ -260,7 +281,7 @@ function Dashboard() {
                         <div className="summary-item"><label>Volume</label><span>{totalInRecords.toLocaleString()}</span></div>
                         <div className="summary-item"><label>Health</label><span>{totalInRecords > 0 ? Math.round(((spfPassCount + dkimPassCount) / (2 * totalInRecords)) * 100) : 0}%</span></div>
                     </div>
-                    <div className="scroll-box" style={{marginTop: '1rem', minHeight: '350px'}}>
+                    <div className="scroll-box" style={{marginTop: '1rem', minHeight: '450px'}}>
                         {inspectTab === 'log' ? (
                             <table className="modern-table">
                                 <thead>
@@ -280,7 +301,7 @@ function Dashboard() {
                                             <td><span className={`status-tag ${r.spf_pass && r.dkim_pass ? 'status-pass' : 'status-fail'}`}>{r.spf_pass && r.dkim_pass ? 'PASS' : 'ALRT'}</span></td>
                                         </tr>
                                         {expandedRecordId === r.id && (
-                                            <tr className="auth-detail-row"><td colSpan={5}><div className="auth-detail-box"><h5>Forensics</h5><div className="detail-cols"><div className="detail-col"><h6>SPF</h6>{r.spf_auth_details.map((s, i) => (<div key={i} className="auth-entry"><span>{s.domain}: {s.result}</span></div>))}</div><div className="detail-col"><h6>DKIM</h6>{r.dkim_auth_details.map((d, i) => (<div key={i} className="auth-entry"><span>{d.domain}: {d.result}</span></div>))}</div></div></div></td></tr>
+                                            <tr className="auth-detail-row"><td colSpan={5}><div className="auth-detail-box"><h5>Forensics</h5><div className="detail-cols"><div className="detail-col"><h6>SPF</h6>{r.spf_auth_details.map((s: any, i: number) => (<div key={i} className="auth-entry"><span>{s.domain}: {s.result}</span></div>))}</div><div className="detail-col"><h6>DKIM</h6>{r.dkim_auth_details.map((d: any, i: number) => (<div key={i} className="auth-entry"><span>{d.domain}: {d.result}</span></div>))}</div></div></div></td></tr>
                                         )}
                                     </React.Fragment>
                                     ))}
@@ -294,6 +315,25 @@ function Dashboard() {
                         )}
                     </div>
                 </div>
+                <aside className="side-panel">
+                    <h3>Top Senders</h3>
+                    <div className="sender-list">
+                        {topSenders.map(([ip, meta]) => (
+                            <div className="sender-item" key={ip}>
+                                <div className="sender-info">
+                                    <span className="sender-ip">{ip}</span>
+                                    <span className="sender-count">{meta.count} msg</span>
+                                </div>
+                                <div className="sender-bar-bg">
+                                    <div className={`sender-bar ${meta.pass ? 'pass' : 'fail'}`} style={{ width: `${Math.min(100, (meta.count / totalInRecords) * 100 * 5)}%` }}></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="insight-card" style={{marginTop: '2rem'}}>
+                        <p><strong>DMARC Insight:</strong> {spfPassCount < dkimPassCount ? "SPF alignment issues detected. Verify your include: mechanisms." : "Check for DKIM signing consistency across all sending mailservers."}</p>
+                    </div>
+                </aside>
              </div>
           </div>
         </div>

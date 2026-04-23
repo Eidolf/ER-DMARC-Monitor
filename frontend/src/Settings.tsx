@@ -31,6 +31,7 @@ const Settings: React.FC = () => {
   const { token, role } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'domains' | 'branding' | 'auth' | 'audit'>('profile');
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
+  const [domains, setDomains] = useState<{id: number, name: string}[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -41,15 +42,17 @@ const Settings: React.FC = () => {
   const [mfaSetup, setMfaSetup] = useState<{ secret: string, uri: string } | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  
+  // Domain states
+  const [newDomainName, setNewDomainName] = useState('');
 
   const isAdmin = role === 'Admin';
 
   useEffect(() => {
-    if (isAdmin && (activeTab === 'auth' || activeTab === 'branding')) {
-      fetchSettings();
-    }
-    if (isAdmin && activeTab === 'audit') {
-      fetchAuditLogs();
+    if (isAdmin) {
+      if (activeTab === 'auth' || activeTab === 'branding') fetchSettings();
+      if (activeTab === 'audit') fetchAuditLogs();
+      if (activeTab === 'domains') fetchDomains();
     }
   }, [activeTab]);
 
@@ -58,6 +61,13 @@ const Settings: React.FC = () => {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) setSettings(await res.json());
+  };
+
+  const fetchDomains = async () => {
+    const res = await fetch('/api/domains', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) setDomains(await res.json());
   };
 
   const fetchAuditLogs = async () => {
@@ -84,6 +94,37 @@ const Settings: React.FC = () => {
       fetchSettings();
     } else {
       setMessage({ type: 'error', text: 'Failed to save settings' });
+    }
+  };
+
+  const handleAddDomain = async () => {
+    if (!newDomainName) return;
+    const res = await fetch('/api/domains', {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name: newDomainName, dmarc_policy: 'none' })
+    });
+    if (res.ok) {
+      setNewDomainName('');
+      fetchDomains();
+      setMessage({ type: 'success', text: 'Domain added' });
+    } else {
+      setMessage({ type: 'error', text: 'Failed to add domain' });
+    }
+  };
+
+  const handleDeleteDomain = async (id: number) => {
+    if (!window.confirm('Delete this domain?')) return;
+    const res = await fetch(`/api/domains/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      fetchDomains();
+      setMessage({ type: 'success', text: 'Domain deleted' });
     }
   };
 
@@ -136,6 +177,7 @@ const Settings: React.FC = () => {
         <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setActiveTab('profile')}>User Profile</button>
         {isAdmin && (
           <>
+            <button className={activeTab === 'domains' ? 'active' : ''} onClick={() => setActiveTab('domains')}>Domains</button>
             <button className={activeTab === 'auth' ? 'active' : ''} onClick={() => setActiveTab('auth')}>Authentication</button>
             <button className={activeTab === 'branding' ? 'active' : ''} onClick={() => setActiveTab('branding')}>Branding</button>
             <button className={activeTab === 'audit' ? 'active' : ''} onClick={() => setActiveTab('audit')}>Security Audit</button>
@@ -196,6 +238,38 @@ const Settings: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'domains' && (
+          <div className="settings-section">
+            <h3>Managed Domains</h3>
+            <div className="add-domain-group" style={{marginBottom: '2rem', display: 'flex', gap: '1rem'}}>
+               <input 
+                 type="text" 
+                 placeholder="Domain name (e.g. example.com)" 
+                 className="text-input" 
+                 value={newDomainName} 
+                 onChange={e => setNewDomainName(e.target.value)} 
+               />
+               <button className="action-btn primary-btn" onClick={handleAddDomain}>Add Domain</button>
+            </div>
+            <table className="modern-table">
+              <thead>
+                <tr>
+                  <th>Domain</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {domains.map(d => (
+                  <tr key={d.id}>
+                    <td>{d.name}</td>
+                    <td><button className="delete-btn" onClick={() => handleDeleteDomain(d.id)}>Delete</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
