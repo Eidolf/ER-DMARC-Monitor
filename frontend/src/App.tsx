@@ -19,7 +19,32 @@ interface Stats {
   unauthorized_senders: number;
 }
 
-// ... existing interfaces ...
+interface DetailedRecord {
+  id: number;
+  source_ip: string;
+  count: number;
+  disposition: string;
+  dkim_pass: boolean;
+  spf_pass: boolean;
+  dkim_auth_details: any[];
+  spf_auth_details: any[];
+  report_id: string;
+  org_name: string;
+  date: string;
+}
+
+type SortKey = 'source_ip' | 'count' | 'org_name' | 'date';
+
+const SortIcon = ({ active, direction }: { active: boolean; direction: 'asc' | 'desc' | null }) => {
+  if (!active) return <span className="sort-icon inactive" style={{marginLeft: '8px', opacity: 0.3}}>↕</span>;
+  return <span className="sort-icon active" style={{marginLeft: '8px', color: '#3b82f6'}}>{direction === 'asc' ? '↑' : '↓'}</span>;
+};
+
+interface UploadResult {
+  filename: string;
+  status: 'success' | 'skipped' | 'error';
+  detail?: string;
+}
 
 function Dashboard() {
   const { token, role, logout } = useAuth();
@@ -29,6 +54,8 @@ function Dashboard() {
   const [view, setView] = useState<'overview' | 'help' | 'settings'>('overview');
   
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadResults, setUploadResults] = useState<UploadResult[] | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [inspectDomain, setInspectDomain] = useState<string | null>(null);
   const [inspectTab, setInspectTab] = useState<'log' | 'reporters'>('log');
   const [detailedRecords, setDetailedRecords] = useState<DetailedRecord[]>([]);
@@ -104,21 +131,27 @@ function Dashboard() {
 
   const handleFileUpload = async () => {
     if (!uploadFiles) return;
+    setIsUploading(true);
+    setUploadResults(null);
     const formData = new FormData();
     for(let i=0; i<uploadFiles.length; i++) formData.append('files', uploadFiles[i]);
     try {
       const res = await authFetch('/api/reports/upload', { method: 'POST', body: formData });
       const data = await res.json();
-      const successCount = data.results.filter((r: any) => r.status === 'success').length;
-      const skippedCount = data.results.filter((r: any) => r.status === 'skipped').length;
-      const errorCount = data.results.filter((r: any) => r.status === 'error').length;
-      
-      alert(`Upload complete: ${successCount} successful, ${skippedCount} skipped (duplicates), ${errorCount} errors.`);
-      setUploadOpen(false); 
+      setUploadResults(data.results);
       loadData();
     } catch (err) {
+      console.error(err);
       alert("Upload failed. See console for details.");
+    } finally {
+      setIsUploading(false);
     }
+  };
+
+  const closeUpload = () => {
+    setUploadOpen(false);
+    setUploadResults(null);
+    setUploadFiles(null);
   };
 
   const topSenders = useMemo(() => {
@@ -253,10 +286,67 @@ function Dashboard() {
 
       {uploadOpen && (
         <div className="modal-overlay">
-          <div className="glass-card modal-content" style={{ padding: '2rem' }}>
-             <div className="modal-header"><h2>Bulk Upload</h2><button onClick={() => setUploadOpen(false)} className="close-btn">&times;</button></div>
-             <input type="file" multiple onChange={(e) => setUploadFiles(e.target.files)} />
-             <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={handleFileUpload}>Process</button>
+          <div className="glass-card modal-content" style={{ padding: '2rem', maxWidth: '600px', width: '90%' }}>
+             <div className="modal-header">
+                <h2>Bulk Report Processing</h2>
+                <button onClick={closeUpload} className="close-btn">&times;</button>
+             </div>
+             
+             {!uploadResults ? (
+               <div className="upload-form">
+                 <p className="subtitle">Select XML, GZ, or ZIP DMARC reports for ingestion</p>
+                 <div className="file-drop-zone">
+                    <input type="file" multiple onChange={(e) => setUploadFiles(e.target.files)} className="file-input" />
+                    <div className="drop-zone-content">
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      <p>{uploadFiles ? `${uploadFiles.length} files selected` : "Click or drag files to upload"}</p>
+                    </div>
+                 </div>
+                 <button 
+                   className="action-btn primary-btn" 
+                   style={{marginTop: '1.5rem', width: '100%'}} 
+                   onClick={handleFileUpload}
+                   disabled={!uploadFiles || isUploading}
+                 >
+                   {isUploading ? "Ingesting Data..." : "Start Ingestion"}
+                 </button>
+               </div>
+             ) : (
+               <div className="upload-results">
+                 <div className="results-summary-strip">
+                    <div className="summary-item success">
+                      <label>Success</label>
+                      <span>{uploadResults.filter(r => r.status === 'success').length}</span>
+                    </div>
+                    <div className="summary-item skipped">
+                      <label>Skipped</label>
+                      <span>{uploadResults.filter(r => r.status === 'skipped').length}</span>
+                    </div>
+                    <div className="summary-item error">
+                      <label>Errors</label>
+                      <span>{uploadResults.filter(r => r.status === 'error').length}</span>
+                    </div>
+                 </div>
+                 <div className="scroll-box" style={{maxHeight: '300px', marginTop: '1rem'}}>
+                    <table className="modern-table mini">
+                      <thead><tr><th>Filename</th><th>Status</th></tr></thead>
+                      <tbody>
+                        {uploadResults.map((res, i) => (
+                          <tr key={i}>
+                            <td style={{fontSize: '0.8rem'}}>{res.filename}</td>
+                            <td>
+                              <span className={`status-tag status-${res.status}`}>
+                                {res.status.toUpperCase()}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                 </div>
+                 <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={closeUpload}>Close Summary</button>
+               </div>
+             )}
           </div>
         </div>
       )}
