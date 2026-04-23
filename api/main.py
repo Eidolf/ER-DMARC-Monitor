@@ -39,8 +39,8 @@ def on_startup():
     for _ in range(5):
         try:
             SQLModel.metadata.create_all(engine)
-            # Bootstrap admin user if none exists
             with Session(engine) as session:
+                # Bootstrap admin user if none exists
                 admin_exists = session.exec(select(User).where(User.role == UserRole.ADMIN)).first()
                 if not admin_exists:
                     admin_user = User(
@@ -51,40 +51,182 @@ def on_startup():
                         is_active=True
                     )
                     session.add(admin_user)
-                    session.commit()
+                
+                # Bootstrap system settings
+                settings_exist = session.exec(select(SystemSettings)).first()
+                if not settings_exist:
+                    settings = SystemSettings(
+                        entra_tenant_id=os.getenv("ENTRA_TENANT_ID"),
+                        entra_client_id=os.getenv("ENTRA_CLIENT_ID"),
+                        entra_client_secret=os.getenv("ENTRA_CLIENT_SECRET"),
+                        entra_tenant_type=os.getenv("ENTRA_TENANT_TYPE", "common")
+                    )
+                    session.add(settings)
+                session.commit()
             break
         except Exception:
             time.sleep(2)
 
-# --- Authentication Endpoints ---
+def log_audit(session: Session, user_id: int, ip: str, method: str, status: str, detail: str = None):
+    audit = LoginAudit(user_id=user_id, ip_address=ip, method=method, status=status, detail=detail)
+    session.add(audit)
+    session.commit()
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
+# --- Settings & Admin Endpoints ---
+
+@app.get("/settings/global")
+def get_global_settings(
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    settings = session.exec(select(SystemSettings)).first()
+    # Mask the client secret
+    if settings.entra_client_secret:
+        settings.entra_client_secret = "********"
+    return settings
+
+@app.post("/settings/global")
+def update_global_settings(
+    new_settings: SystemSettings,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    db_settings = session.exec(select(SystemSettings)).first()
+    update_data = new_settings.dict(exclude_unset=True)
+    
+    # Don't overwrite secret if it was masked in the UI
+    if update_data.get("entra_client_secret") == "********":
+        del update_data["entra_client_secret"]
+        
+    for key, value in update_data.items():
+        setattr(db_settings, key, value)
+    
+    session.add(db_settings)
+    session.commit()
+    session.refresh(db_settings)
+    return db_settings
+
+@app.get("/settings/branding")
+def get_branding(session: Session = Depends(get_session)):
+    settings = session.exec(select(SystemSettings)).first()
+    return {
+        "title_part1": settings.title_part1,
+        "title_part2": settings.title_part2,
+        "color_part1": settings.color_part1,
+        "color_part2": settings.color_part2,
+        "logo_url": settings.logo_url
+    }
+
+@app.get("/admin/audit")
+def get_audit_logs(
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    # Join with User to get emails
+    statement = select(LoginAudit, User.email).join(User).order_by(LoginAudit.timestamp.desc()).limit(100)
+    results = session.exec(statement).all()
+    return [{"id": a.id, "email": email, "timestamp": a.timestamp, "ip": a.ip_address, "method": a.method, "status": a.status, "detail": a.detail} for a, email in results]
+
+# --- Profile Endpoints ---
+
+class PasswordChangeRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+@app.post("/auth/profile/password")
+def change_password(
+    req: PasswordChangeRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    if user.sso_provider:
+        raise HTTPException(status_code=400, detail="SSO users cannot change password locally")
+    
+    if not verify_password(req.old_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Invalid old password")
+    
+    user.hashed_password = get_password_hash(req.new_password)
+    session.add(user)
+    session.commit()
+    return {"status": "success"}
+
+@app.post("/auth/profile/mfa/setup")
+def setup_mfa(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    import auth
+    secret = auth.generate_totp_secret()
+    user.mfa_secret = secret
+    uri = auth.get_totp_uri(secret, user.email)
+    session.add(user)
+    session.commit()
+    return {"secret": secret, "uri": uri}
+
+@app.post("/auth/profile/mfa/enable")
+def enable_mfa(
+    code: str,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    if not user.mfa_secret or not verify_totp(user.mfa_secret, code):
+        raise HTTPException(status_code=400, detail="Invalid MFA code")
+    
+    user.mfa_enabled = True
+    # Generate recovery codes
+    import secrets
+    import json
+    codes = [secrets.token_hex(4) for _ in range(8)]
+    user.mfa_recovery_codes = json.dumps(codes)
+    
+    session.add(user)
+    session.commit()
+    return {"recovery_codes": codes}
+
+@app.get("/auth/profile/activity")
+def get_activity(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    audits = session.exec(select(LoginAudit).where(LoginAudit.user_id == user.id).order_by(LoginAudit.timestamp.desc()).limit(10)).all()
+    return audits
+
+# --- Updated Authentication Endpoints ---
 
 @app.post("/auth/login")
-def login(req: LoginRequest, session: Session = Depends(get_session)):
+def login(req: LoginRequest, request: Request, session: Session = Depends(get_session)):
+    client_ip = request.client.host
     user = session.exec(select(User).where(User.username == req.username)).first()
+    
     if not user or not user.hashed_password or not verify_password(req.password, user.hashed_password):
+        if user: log_audit(session, user.id, client_ip, "local", "failed", "Invalid password")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     if not user.is_active:
+        log_audit(session, user.id, client_ip, "local", "failed", "Account disabled")
         raise HTTPException(status_code=401, detail="Account disabled")
 
-    # Check if MFA is required
-    # Mandatory for Admin and Analyst
-    mfa_required = user.role in [UserRole.ADMIN, UserRole.ANALYST]
+    settings = session.exec(select(SystemSettings)).first()
+    if not settings.allow_local_login and user.role != UserRole.ADMIN:
+        log_audit(session, user.id, client_ip, "local", "failed", "Local login disabled")
+        raise HTTPException(status_code=403, detail="Local login is currently disabled")
+
+    # MFA Enforcement Check
+    mfa_required = (user.role == UserRole.ADMIN and settings.enforce_mfa_admins) or \
+                   (user.role == UserRole.ANALYST and settings.enforce_mfa_analysts)
     
     if mfa_required and user.mfa_enabled:
-        # Return a temporary token for MFA verification
+        log_audit(session, user.id, client_ip, "local", "mfa_pending")
         temp_token = create_mfa_token({"sub": str(user.id)})
         return {"mfa_required": True, "mfa_token": temp_token}
     
-    # If MFA is required but not set up, we might want to force setup or just allow for now
-    # The requirement says "Enforced MFA for privileged roles". 
-    # If not enabled yet, we should probably redirect to setup. 
-    # For now, let's just issue the token if not enabled, but mark as "mfa_setup_required"
-    
+    user.last_login = datetime.utcnow()
+    user.last_login_ip = client_ip
+    user.last_login_method = "local"
+    log_audit(session, user.id, client_ip, "local", "success")
+    session.add(user)
+    session.commit()
+
     access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
     return {
         "access_token": access_token, 
@@ -98,9 +240,10 @@ class MFAVerifyRequest(BaseModel):
     code: str
 
 @app.post("/auth/mfa/verify")
-def verify_mfa(req: MFAVerifyRequest, session: Session = Depends(get_session)):
+def verify_mfa(req: MFAVerifyRequest, request: Request, session: Session = Depends(get_session)):
     from jose import jwt
     from auth import SECRET_KEY, ALGORITHM
+    client_ip = request.client.host
     try:
         payload = jwt.decode(req.mfa_token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("sub")
@@ -111,20 +254,33 @@ def verify_mfa(req: MFAVerifyRequest, session: Session = Depends(get_session)):
         
     user = session.get(User, int(user_id))
     if not user or not user.mfa_secret or not verify_totp(user.mfa_secret, req.code):
+        log_audit(session, user.id if user else 0, client_ip, "mfa", "failed", "Invalid MFA code")
         raise HTTPException(status_code=401, detail="Invalid MFA code")
     
+    user.last_login = datetime.utcnow()
+    user.last_login_ip = client_ip
+    user.last_login_method = "local" # Still local method but MFA verified
+    log_audit(session, user.id, client_ip, "mfa", "success")
+    session.add(user)
+    session.commit()
+
     access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
     return {"access_token": access_token, "token_type": "bearer", "role": user.role}
 
 @app.get("/auth/sso/login")
-def sso_login():
+def sso_login(session: Session = Depends(get_session)):
+    settings = session.exec(select(SystemSettings)).first()
+    if not settings.allow_sso_login:
+        raise HTTPException(status_code=403, detail="SSO login is currently disabled")
+    
     url = entra.get_auth_url()
     if not url:
         raise HTTPException(status_code=501, detail="SSO not configured")
     return RedirectResponse(url)
 
 @app.get("/auth/sso/callback")
-def sso_callback(code: str, session: Session = Depends(get_session)):
+def sso_callback(code: str, request: Request, session: Session = Depends(get_session)):
+    client_ip = request.client.host
     result = entra.acquire_token_by_code(code)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result.get("error_description"))
@@ -153,12 +309,16 @@ def sso_callback(code: str, session: Session = Depends(get_session)):
             session.add(user)
     
     user.last_login = datetime.utcnow()
+    user.last_login_ip = client_ip
+    user.last_login_method = "entra"
+    log_audit(session, user.id, client_ip, "entra", "success")
+    session.add(user)
     session.commit()
     session.refresh(user)
     
     access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
-    # Redirect back to frontend with token (in a real app, use a secure way to pass this)
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    # Redirect back to frontend with token
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:13060")
     return RedirectResponse(f"{frontend_url}/?token={access_token}&role={user.role}")
 
 @app.get("/auth/me")

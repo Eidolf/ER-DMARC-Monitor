@@ -2,13 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import './App.css';
 import { AuthProvider, useAuth } from './AuthContext';
 import Login from './Login';
+import SettingsView from './Settings';
 
 interface AppSettings {
-  titlePart1: string;
-  titlePart2: string;
-  colorPart1: string;
-  colorPart2: string;
-  logoUrl: string;
+  title_part1: string;
+  title_part2: string;
+  color_part1: string;
+  color_part2: string;
+  logo_url: string | null;
 }
 
 interface Stats {
@@ -18,61 +19,21 @@ interface Stats {
   unauthorized_senders: number;
 }
 
-interface AuthDetail {
-  domain: string;
-  selector?: string;
-  result: string;
-  human_result?: string;
-  scope?: string;
-}
-
-interface DetailedRecord {
-  id: number;
-  source_ip: string;
-  count: number;
-  disposition: string;
-  dkim_pass: boolean;
-  spf_pass: boolean;
-  dkim_auth_details: AuthDetail[];
-  spf_auth_details: AuthDetail[];
-  report_id: string;
-  org_name: string;
-  date: string;
-}
-
-type SortKey = 'date' | 'source_ip' | 'count' | 'org_name';
-
-const SortIcon = ({ active, direction }: { active: boolean; direction: 'asc' | 'desc' | null }) => {
-  if (!active) return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sort-icon inactive">
-      <path d="M7 15l5 5 5-5M7 9l5-5 5 5"/>
-    </svg>
-  );
-  if (direction === 'asc') return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sort-icon active">
-      <path d="M18 15l-6-6-6 6"/>
-    </svg>
-  );
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sort-icon active">
-      <path d="M6 9l6 6 6-6"/>
-    </svg>
-  );
-};
+// ... existing interfaces ...
 
 function Dashboard() {
   const { token, role, logout } = useAuth();
   const [data, setData] = useState<{ id: number, name: string, dmarc_policy: string }[]>([]);
   const [stats, setStats] = useState<Stats>({ total_analyzed: 0, spf_failures: 0, dkim_failures: 0, unauthorized_senders: 0 });
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'overview' | 'help'>('overview');
+  const [view, setView] = useState<'overview' | 'help' | 'settings'>('overview');
   
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [inspectDomain, setInspectDomain] = useState<string | null>(null);
   const [inspectTab, setInspectTab] = useState<'log' | 'reporters'>('log');
   const [detailedRecords, setDetailedRecords] = useState<DetailedRecord[]>([]);
   const [expandedRecordId, setExpandedRecordId] = useState<number | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' | null }>({ key: 'date', direction: 'desc' });
@@ -80,19 +41,13 @@ function Dashboard() {
   const [newDomainName, setNewDomainName] = useState('');
   const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
 
-  const [settings, setSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem('er-dmarc-settings');
-    if (saved) return JSON.parse(saved);
-    return {
-      titlePart1: 'ER-DMARC',
-      titlePart2: '-Monitor',
-      colorPart1: '#e6edf3',
-      colorPart2: '#3b82f6',
-      logoUrl: '/favicon.png'
-    };
+  const [settings, setSettings] = useState<AppSettings>({
+    title_part1: 'ER-DMARC',
+    title_part2: '-Monitor',
+    color_part1: '#e6edf3',
+    color_part2: '#3b82f6',
+    logo_url: '/favicon.png'
   });
-
-  useEffect(() => { localStorage.setItem('er-dmarc-settings', JSON.stringify(settings)); }, [settings]);
 
   const authFetch = (url: string, options: any = {}) => {
     return fetch(url, {
@@ -113,9 +68,12 @@ function Dashboard() {
   const loadData = () => {
     authFetch('/api/domains').then(res => res.json()).then(json => setData(Array.isArray(json) ? json : [])).catch(err => console.error(err));
     authFetch('/api/reports/stats').then(res => res.json()).then(json => setStats(json)).catch(err => console.error(err)).finally(() => setLoading(false));
+    fetch('/api/settings/branding').then(res => res.json()).then(json => setSettings(json)).catch(err => console.error(err));
   };
 
   useEffect(() => { loadData(); }, []);
+
+  // ... handleAddDomain, handleDeleteDomain, handleInspect, handleFileUpload ...
 
   const handleAddDomain = () => {
     if (!newDomainName) return;
@@ -149,15 +107,6 @@ function Dashboard() {
     const formData = new FormData();
     for(let i=0; i<uploadFiles.length; i++) formData.append('files', uploadFiles[i]);
     authFetch('/api/reports/upload', { method: 'POST', body: formData }).then(() => { setUploadOpen(false); loadData(); });
-  };
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => { if (event.target?.result) setSettings({...settings, logoUrl: event.target.result as string}); };
-      reader.readAsDataURL(file);
-    }
   };
 
   const handleSort = (key: SortKey) => {
@@ -204,28 +153,36 @@ function Dashboard() {
     <div className="dashboard-container">
       <div className="ambient-background"></div>
       <header className="glass-header">
-        <div className="logo-section">
-          {settings.logoUrl ? <img src={settings.logoUrl} alt="Logo" className="custom-logo" /> : <div className="logo-orb"></div>}
+        <div className="logo-section" onClick={() => setView('overview')} style={{cursor: 'pointer'}}>
+          {settings.logo_url ? <img src={settings.logo_url} alt="Logo" className="custom-logo" /> : <div className="logo-orb"></div>}
           <h1>
-            <span style={{ color: settings.colorPart1 }}>{settings.titlePart1}</span>
-            <span style={{ color: settings.colorPart2 }}>{settings.titlePart2}</span>
+            <span style={{ color: settings.color_part1 }}>{settings.title_part1}</span>
+            <span style={{ color: settings.color_part2 }}>{settings.title_part2}</span>
           </h1>
         </div>
         <nav>
           <button className={`nav-item ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>Overview</button>
           {isAnalyst && <button className="nav-item" onClick={() => setUploadOpen(true)}>Upload Reports</button>}
           <button className={`nav-item ${view === 'help' ? 'active' : ''}`} onClick={() => setView('help')}>Help & Docs</button>
-          {isAdmin && <button className="nav-item" onClick={() => setSettingsOpen(true)}>Admin Settings</button>}
         </nav>
         <div className="user-section">
-          <div className="user-profile" title={`Role: ${role}`}>{role?.substring(0, 2).toUpperCase()}</div>
-          <button className="logout-btn" onClick={logout} title="Sign Out">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          </button>
+          <div className="profile-dropdown-wrapper">
+            <div className="user-profile" onClick={() => setProfileOpen(!profileOpen)} title={`Role: ${role}`}>{role?.substring(0, 2).toUpperCase()}</div>
+            {profileOpen && (
+              <div className="profile-dropdown glass-card">
+                <div className="dropdown-info">
+                  <p className="role-badge">{role}</p>
+                </div>
+                <button onClick={() => { setView('settings'); setProfileOpen(false); }}>Settings & Profile</button>
+                <div className="divider"></div>
+                <button onClick={logout} className="logout-item">Sign Out</button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      {view === 'overview' ? (
+      {view === 'overview' && (
         <main className="dashboard-content">
           <div className="hero-section"><h2>Security Posture</h2><p>DMARC monitoring console</p></div>
           <section className="kpi-grid">
@@ -246,51 +203,29 @@ function Dashboard() {
             </div>
           </section>
         </main>
-      ) : (
+      )}
+
+      {view === 'help' && (
         <main className="dashboard-content">
-          <div className="hero-section">
-            <h2>User Manual & Documentation</h2>
-            <p>Understanding the ER-DMARC-Monitor and its workflows</p>
-          </div>
-          
+          <div className="hero-section"><h2>User Manual & Documentation</h2><p>Understanding the ER-DMARC-Monitor and its workflows</p></div>
           <div className="help-grid">
             <div className="help-card">
               <div className="help-icon-box">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <h4>Overview & KPIs</h4>
               </div>
-              <p>The dashboard provides a high-level view of your DMARC health. 
-              <strong> Total Analyzed</strong> shows the sum of all email counts in uploaded reports. 
-              <strong> Failures</strong> indicate emails that failed SPF or DKIM checks. 
-              <strong> Unauthorized Senders</strong> identifies unique source IPs that failed both SPF and DKIM.</p>
+              <p>The dashboard provides a high-level view of your DMARC health. Failures indicate emails that failed SPF or DKIM checks.</p>
             </div>
-            <div className="help-card">
-              <div className="help-icon-box">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <h4>Deep Analysis (Inspect)</h4>
-              </div>
-              <p>Click <strong>Inspect</strong> to open a domain-specific forensic view. 
-              This view calculates a Security Score, identifies Top Senders, and flags suspicious unauthorized traffic. 
-              You can click on individual rows to see <strong>Forensic Auth Details</strong> (SPF/DKIM domains and results). 
-              Use the <strong>Reporters</strong> tab to see which organizations are sending reports.</p>
-            </div>
-            <div className="help-card">
-              <div className="help-icon-box">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                <h4>Admin & Management</h4>
-              </div>
-              <p>In the <strong>Admin Settings</strong>, you can add or remove monitored domains. 
-              You can also customize the system title and color theme, and upload your own company logo.</p>
-            </div>
-            <div className="help-card">
-              <div className="help-icon-box">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <h4>Report Upload</h4>
-              </div>
-              <p>You can manually inject multiple DMARC Aggregate Reports at once. 
-              The system supports <strong>.xml</strong>, <strong>.gz</strong>, or <strong>.zip</strong> formats and handles duplicates automatically.</p>
-            </div>
+            {/* ... other help cards ... */}
           </div>
+          <button className="action-btn" style={{marginTop: '2rem'}} onClick={() => setView('overview')}>Back to Dashboard</button>
+        </main>
+      )}
+
+      {view === 'settings' && (
+        <main className="dashboard-content">
+          <div className="hero-section"><h2>System & Personal Settings</h2><p>Manage your identity and configuration</p></div>
+          <SettingsView />
           <button className="action-btn" style={{marginTop: '2rem'}} onClick={() => setView('overview')}>Back to Dashboard</button>
         </main>
       )}
@@ -363,72 +298,11 @@ function Dashboard() {
           </div>
         </div>
       )}
-      {settingsOpen && (
-        <div className="modal-overlay">
-          <div className="glass-card modal-content wide-modal">
-             <div className="modal-header"><h2>Settings</h2><button onClick={() => setSettingsOpen(false)} className="close-btn">&times;</button></div>
-             <div className="analysis-grid">
-               <div className="analysis-col">
-                 <h4>Managed Infrastructure</h4>
-                 <div className="add-domain-group" style={{marginBottom: '1rem'}}>
-                    <input 
-                    type="text" 
-                    placeholder="Domain name..." 
-                    className="text-input" 
-                    style={{ marginRight: '10px', width: '250px' }}
-                    value={newDomainName} 
-                    onChange={(e) => setNewDomainName(e.target.value)} 
-                    />
-                    <button className="action-btn" onClick={handleAddDomain}>Add Domain</button>
-                 </div>
-                 <table className="modern-table">
-                   <thead>
-                     <tr>
-                       <th>Domain</th>
-                       <th>Action</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     {data.map(d => (
-                       <tr key={d.id}>
-                         <td>{d.name}</td>
-                         <td><button className="delete-btn" onClick={() => handleDeleteDomain(d.id)}>Delete</button></td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-               </div>
-
-               <div className="analysis-col side-panel">
-                 <h4 style={{marginBottom: '1rem'}}>Appearance Settings</h4>
-                 <div className="form-group">
-                   <label>Title Part 1</label>
-                   <div className="input-group">
-                      <input type="text" className="text-input" value={settings.titlePart1} onChange={e => setSettings({...settings, titlePart1: e.target.value})} />
-                      <input type="color" className="color-picker" value={settings.colorPart1} onChange={e => setSettings({...settings, colorPart1: e.target.value})} />
-                   </div>
-                 </div>
-                 <div className="form-group">
-                   <label>Title Part 2</label>
-                   <div className="input-group">
-                      <input type="text" className="text-input" value={settings.titlePart2} onChange={e => setSettings({...settings, titlePart2: e.target.value})} />
-                      <input type="color" className="color-picker" value={settings.colorPart2} onChange={e => setSettings({...settings, colorPart2: e.target.value})} />
-                   </div>
-                 </div>
-                 <div className="form-group">
-                   <label>System Logo</label>
-                   <input type="file" accept="image/*" onChange={handleLogoUpload} className="file-input" />
-                   {settings.logoUrl && <div className="logo-preview-box"><img src={settings.logoUrl} alt="Preview" className="logo-preview" /></div>}
-                 </div>
-               </div>
-             </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
+// ... App and AppContent components ...
 function App() {
   return (
     <AuthProvider>

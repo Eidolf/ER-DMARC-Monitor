@@ -20,6 +20,7 @@ class User(SQLModel, table=True):
     # MFA
     mfa_enabled: bool = Field(default=False)
     mfa_secret: str | None = Field(default=None)
+    mfa_recovery_codes: str | None = Field(default=None) # JSON string
     
     # SSO (Entra ID)
     sso_provider: str | None = Field(default=None) # "entra"
@@ -28,6 +29,39 @@ class User(SQLModel, table=True):
     # Audit
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: datetime | None = Field(default=None)
+    last_login_ip: str | None = Field(default=None)
+    last_login_method: str | None = Field(default=None) # "local", "entra"
+
+class SystemSettings(SQLModel, table=True):
+    id: int | None = Field(default=1, primary_key=True)
+    
+    # Auth Modes
+    allow_local_login: bool = Field(default=True)
+    allow_sso_login: bool = Field(default=True)
+    enforce_mfa_admins: bool = Field(default=True)
+    enforce_mfa_analysts: bool = Field(default=False)
+    
+    # Entra ID Config
+    entra_tenant_id: str | None = Field(default=None)
+    entra_client_id: str | None = Field(default=None)
+    entra_client_secret: str | None = Field(default=None)
+    entra_tenant_type: str = Field(default="common") # "common", "organizations", or specific GUID
+    
+    # Branding (Moved from local storage to DB)
+    title_part1: str = Field(default="ER-DMARC")
+    title_part2: str = Field(default="-Monitor")
+    color_part1: str = Field(default="#e6edf3")
+    color_part2: str = Field(default="#3b82f6")
+    logo_url: str | None = Field(default=None)
+
+class LoginAudit(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    ip_address: str
+    method: str # "local", "entra"
+    status: str # "success", "failed", "mfa_pending"
+    detail: str | None = Field(default=None)
 
 class Domain(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
