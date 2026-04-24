@@ -329,6 +329,7 @@ function Dashboard() {
                 <p>Verify that your DMARC endpoints are reachable in <strong>Settings &gt; SMTP Test</strong>:</p>
                 <ul>
                   <li><strong>Portal Test:</strong> Trigger a real DMARC report processing flow directly from the UI.</li>
+                  <li><strong>Allowed Recipients:</strong> Enter the email address that is configured in your DNS (e.g., <code>dmarc-reports@domain.com</code>).</li>
                   <li><strong>Isolation:</strong> All test data is automatically filtered out from your production metrics and dashboards.</li>
                 </ul>
               </div>

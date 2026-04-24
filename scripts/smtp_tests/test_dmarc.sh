@@ -1,12 +1,16 @@
 #!/bin/bash
-
-# Simple SMTP test script using swaks or telnet
-# Requirement: swaks (Swiss Army Knife for SMTP)
+# Usage: ./test_dmarc.sh [host] [port] [domain] [recipient]
+# Example: ./test_dmarc.sh localhost 13062 example.com report@dmarc.domain.com
 
 HOST=${1:-"localhost"}
 PORT=${2:-13062}
 DOMAIN=${3:-"test-domain.com"}
 RECIPIENT=${4:-"report@dmarc.domain.com"}
+
+if ! command -v swaks &> /dev/null; then
+    echo "Error: 'swaks' is not installed. Please install it (e.g., 'sudo apt install swaks') or use the Python script instead."
+    exit 1
+fi
 
 echo "Sending test DMARC report to $HOST:$PORT for $DOMAIN..."
 

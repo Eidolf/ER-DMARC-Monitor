@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# Usage: python3 test_dmarc.py --domain example.com --to report@dmarc.domain.com
 import smtplib
 import uuid
 import argparse
