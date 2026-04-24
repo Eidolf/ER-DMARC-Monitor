@@ -16,7 +16,7 @@ import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
 
-from models import Domain, ReportMetadata, ReportRecord, User, UserRole, SystemSettings, LoginAudit
+from models import Domain, ReportMetadata, ReportRecord, User, UserRole, SystemSettings, LoginAudit, AuthSource
 from auth import (
     get_password_hash, verify_password, create_access_token, create_mfa_token,
     verify_totp, get_current_user, RoleChecker, get_session
@@ -48,13 +48,21 @@ def on_startup():
                 admin_exists = session.exec(select(User).where(User.role == UserRole.ADMIN)).first()
                 if not admin_exists:
                     admin_user = User(
-                        email=os.getenv("ADMIN_EMAIL", "admin@example.com"),
+                        email=os.getenv("ADMIN_EMAIL", "admin@local"),
                         username=os.getenv("ADMIN_USER", "admin"),
                         hashed_password=get_password_hash(os.getenv("ADMIN_PASSWORD", "admin123")),
                         role=UserRole.ADMIN,
-                        is_active=True
+                        is_active=True,
+                        auth_source=AuthSource.LOCAL
                     )
                     session.add(admin_user)
+                else:
+                    # Migration logic: admin@example.com -> admin@local
+                    legacy_admin = session.exec(select(User).where(User.email == "admin@example.com")).first()
+                    if legacy_admin:
+                        legacy_admin.email = "admin@local"
+                        legacy_admin.auth_source = AuthSource.LOCAL
+                        session.add(legacy_admin)
                 
                 # Bootstrap system settings
                 settings_exist = session.exec(select(SystemSettings)).first()
@@ -130,6 +138,118 @@ def get_audit_logs(
     statement = select(LoginAudit, User.email).join(User).order_by(LoginAudit.timestamp.desc()).limit(100)
     results = session.exec(statement).all()
     return [{"id": a.id, "email": email, "timestamp": a.timestamp, "ip": a.ip_address, "method": a.method, "status": a.status, "detail": a.detail} for a, email in results]
+
+# --- User Management Endpoints ---
+
+class UserCreate(BaseModel):
+    email: str
+    username: str
+    password: str
+    role: UserRole
+
+class UserUpdate(BaseModel):
+    email: str | None = None
+    role: UserRole | None = None
+    is_active: bool | None = None
+
+@app.get("/admin/users")
+def get_users(
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    return session.exec(select(User)).all()
+
+@app.post("/admin/users")
+def create_user(
+    new_user: UserCreate,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    # Ensure @local for local users
+    if not new_user.email.endswith("@local"):
+        raise HTTPException(status_code=400, detail="Local users must use the @local domain")
+        
+    existing = session.exec(select(User).where(User.email == new_user.email)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="User already exists")
+        
+    db_user = User(
+        email=new_user.email,
+        username=new_user.username,
+        hashed_password=get_password_hash(new_user.password),
+        role=new_user.role,
+        auth_source=AuthSource.LOCAL
+    )
+    session.add(db_user)
+    session.commit()
+    session.refresh(db_user)
+    return db_user
+
+@app.patch("/admin/users/{user_id}")
+def update_user(
+    user_id: int,
+    update: UserUpdate,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    db_user = session.get(User, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if db_user.id == user.id and update.role and update.role != UserRole.ADMIN:
+        raise HTTPException(status_code=400, detail="You cannot remove your own Admin role")
+
+    if update.email is not None:
+        if db_user.auth_source == AuthSource.LOCAL and not update.email.endswith("@local"):
+             raise HTTPException(status_code=400, detail="Local users must use the @local domain")
+        db_user.email = update.email
+    if update.role is not None:
+        db_user.role = update.role
+    if update.is_active is not None:
+        # Prevent disabling the last admin
+        if not update.is_active and db_user.role == UserRole.ADMIN:
+            admins = session.exec(select(User).where(User.role == UserRole.ADMIN, User.is_active == True)).all()
+            if len(admins) <= 1:
+                raise HTTPException(status_code=400, detail="Cannot disable the last active Admin")
+        db_user.is_active = update.is_active
+        
+    session.add(db_user)
+    session.commit()
+    session.refresh(db_user)
+    return db_user
+
+@app.post("/admin/users/{user_id}/reset-mfa")
+def reset_user_mfa(
+    user_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    db_user = session.get(User, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    db_user.mfa_enabled = False
+    db_user.mfa_secret = None
+    db_user.mfa_recovery_codes = None
+    session.add(db_user)
+    session.commit()
+    return {"status": "success"}
+
+@app.delete("/admin/users/{user_id}")
+def delete_user(
+    user_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    db_user = session.get(User, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if db_user.id == user.id:
+        raise HTTPException(status_code=400, detail="You cannot delete yourself")
+        
+    session.delete(db_user)
+    session.commit()
+    return {"status": "success"}
 
 # --- Profile Endpoints ---
 
@@ -340,6 +460,7 @@ def get_me(user: User = Depends(get_current_user)):
         "email": user.email,
         "username": user.username,
         "role": user.role,
+        "auth_source": user.auth_source,
         "mfa_enabled": user.mfa_enabled
     }
 

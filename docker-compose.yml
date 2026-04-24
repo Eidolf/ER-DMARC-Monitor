@@ -21,7 +21,7 @@ services:
       - DB_DSN=postgresql+psycopg://dmarc_admin:secure_dmarc_pass@postgres:5432/dmarc_monitor
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=change_me_in_production
-      - ADMIN_EMAIL=admin@example.com
+      - ADMIN_EMAIL=admin@local
       - ADMIN_USER=admin
       - ADMIN_PASSWORD=admin123
       - ENTRA_CLIENT_ID=

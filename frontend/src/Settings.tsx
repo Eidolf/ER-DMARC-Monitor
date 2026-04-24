@@ -32,12 +32,13 @@ interface AuditLog {
 
 const Settings: React.FC = () => {
   const { token, role } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'domains' | 'branding' | 'auth' | 'audit' | 'smtp'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'domains' | 'branding' | 'auth' | 'audit' | 'smtp' | 'users'>('profile');
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
   const [domains, setDomains] = useState<{id: number, name: string}[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Profile states
   const [oldPassword, setOldPassword] = useState('');
@@ -56,16 +57,29 @@ const Settings: React.FC = () => {
   const [testType, setTestType] = useState('RUA');
   const [triggering, setTriggering] = useState(false);
 
+  // User Management states
+  const [users, setUsers] = useState<any[]>([]);
+  const [newUser, setNewUser] = useState({ email: '', username: '', password: '', role: 'Analyst' });
+
   const isAdmin = role === 'Admin';
 
   useEffect(() => {
+    fetchProfile();
     if (isAdmin) {
       if (activeTab === 'auth' || activeTab === 'branding' || activeTab === 'smtp') fetchSettings();
       if (activeTab === 'audit') fetchAuditLogs();
       if (activeTab === 'domains') fetchDomains();
       if (activeTab === 'smtp') fetchTestResults();
+      if (activeTab === 'users') fetchUsers();
     }
   }, [activeTab]);
+
+  const fetchProfile = async () => {
+    const res = await fetch('/api/auth/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) setCurrentUser(await res.json());
+  };
 
   const fetchSettings = async () => {
     const res = await fetch('/api/settings/global', {
@@ -86,6 +100,54 @@ const Settings: React.FC = () => {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) setAuditLogs(await res.json());
+  };
+
+  const fetchUsers = async () => {
+    const res = await fetch('/api/admin/users', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) setUsers(await res.json());
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await fetch('/api/admin/users', {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(newUser)
+    });
+    if (res.ok) {
+      setMessage({ type: 'success', text: 'User created successfully' });
+      setNewUser({ email: '', username: '', password: '', role: 'Analyst' });
+      fetchUsers();
+    } else {
+      const data = await res.json();
+      setMessage({ type: 'error', text: data.detail || 'Failed to create user' });
+    }
+  };
+
+  const handleToggleUserStatus = async (user_id: number, current_active: boolean) => {
+    const res = await fetch(`/api/admin/users/${user_id}`, {
+      method: 'PATCH',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ is_active: !current_active })
+    });
+    if (res.ok) fetchUsers();
+  };
+
+  const handleDeleteUser = async (user_id: number) => {
+    if (!window.confirm('Delete this user?')) return;
+    const res = await fetch(`/api/admin/users/${user_id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) fetchUsers();
   };
 
   const fetchTestResults = async () => {
@@ -214,6 +276,7 @@ const Settings: React.FC = () => {
         {isAdmin && (
           <>
             <button className={activeTab === 'domains' ? 'active' : ''} onClick={() => setActiveTab('domains')}>Domains</button>
+            <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>User Management</button>
             <button className={activeTab === 'auth' ? 'active' : ''} onClick={() => setActiveTab('auth')}>Authentication</button>
             <button className={activeTab === 'smtp' ? 'active' : ''} onClick={() => setActiveTab('smtp')}>SMTP Test</button>
             <button className={activeTab === 'branding' ? 'active' : ''} onClick={() => setActiveTab('branding')}>Branding</button>
@@ -229,7 +292,10 @@ const Settings: React.FC = () => {
           <div className="settings-section">
             <h3>My Profile</h3>
             <div className="profile-info">
-              <p><strong>Role:</strong> {role}</p>
+              <p><strong>Username:</strong> {currentUser?.username || '...'}</p>
+              <p><strong>Email:</strong> {currentUser?.email || '...'}</p>
+              <p><strong>Role:</strong> <span className="status-tag status-pass">{currentUser?.role || '...'}</span></p>
+              <p><strong>Auth Source:</strong> {currentUser?.auth_source === 'local' ? '🏠 Local Account' : '☁️ Microsoft Entra ID'}</p>
             </div>
 
             <div className="settings-subsection">
@@ -374,6 +440,10 @@ const Settings: React.FC = () => {
                  <input type="color" className="color-picker" value={settings.color_part2} onChange={e => setSettings({...settings, color_part2: e.target.value})} />
               </div>
             </div>
+            <div className="form-group">
+              <label>Logo URL (optional)</label>
+              <input type="text" className="text-input" placeholder="https://example.com/logo.png" value={settings.logo_url || ''} onChange={e => setSettings({...settings, logo_url: e.target.value})} />
+            </div>
             <button onClick={handleSaveSettings} disabled={loading} className="action-btn primary-btn">Save Branding</button>
           </div>
         )}
@@ -408,6 +478,86 @@ const Settings: React.FC = () => {
           </div>
         )}
 
+        {activeTab === 'users' && (
+          <div className="settings-section">
+            <h3>User Management</h3>
+            
+            <div className="settings-subsection">
+              <h4>Create Local User</h4>
+              <form onSubmit={handleCreateUser} className="glass-card" style={{padding: '1.5rem'}}>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Email (must end in @local)</label>
+                    <input type="text" className="text-input" placeholder="user@local" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label>Username</label>
+                    <input type="text" className="text-input" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} required />
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>Initial Password</label>
+                    <input type="password" name="new-password" id="new-password"  autoComplete="new-password"  className="text-input" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} required />
+                  </div>
+                  <div className="form-group">
+                    <label>Role</label>
+                    <select className="text-input" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
+                      <option value="Admin">Admin</option>
+                      <option value="Analyst">Analyst</option>
+                      <option value="Read-only">Read-only</option>
+                    </select>
+                  </div>
+                </div>
+                <button type="submit" className="action-btn primary-btn">Create Local Account</button>
+              </form>
+            </div>
+
+            <div className="settings-subsection">
+              <h4>Existing Users</h4>
+              <div className="scroll-box">
+                <table className="modern-table">
+                  <thead>
+                    <tr>
+                      <th>Source</th>
+                      <th>Email</th>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                      <th>Last Login</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map(u => (
+                      <tr key={u.id}>
+                        <td>
+                          {u.auth_source === 'local' ? 
+                            <span title="Local Account" style={{color: 'var(--accent-blue)'}}>🏠 Local</span> : 
+                            <span title="Entra ID" style={{color: '#0078d4'}}>☁️ Entra</span>
+                          }
+                        </td>
+                        <td>{u.email}</td>
+                        <td>{u.username}</td>
+                        <td>{u.role}</td>
+                        <td><span className={`status-tag ${u.is_active ? 'status-pass' : 'status-fail'}`}>{u.is_active ? 'Active' : 'Disabled'}</span></td>
+                        <td>{u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}</td>
+                        <td>
+                          <div style={{display: 'flex', gap: '0.5rem'}}>
+                            <button onClick={() => handleToggleUserStatus(u.id, u.is_active)} className="action-btn small-btn">
+                              {u.is_active ? 'Disable' : 'Enable'}
+                            </button>
+                            <button onClick={() => handleDeleteUser(u.id)} className="action-btn small-btn danger-btn">Delete</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
         {activeTab === 'smtp' && settings && (
           <div className="settings-section">
             <h3>SMTP Ingestion Test Framework</h3>

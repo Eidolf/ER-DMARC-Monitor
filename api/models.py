@@ -9,6 +9,10 @@ class UserRole(str, Enum):
     ANALYST = "Analyst"
     READ_ONLY = "Read-only"
 
+class AuthSource(str, Enum):
+    LOCAL = "local"
+    ENTRA_ID = "entra_id"
+
 class User(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     email: str = Field(index=True, unique=True)
@@ -16,6 +20,7 @@ class User(SQLModel, table=True):
     hashed_password: str | None = Field(default=None)
     role: UserRole = Field(default=UserRole.READ_ONLY)
     is_active: bool = Field(default=True)
+    auth_source: AuthSource = Field(default=AuthSource.LOCAL)
     
     # MFA
     mfa_enabled: bool = Field(default=False)
