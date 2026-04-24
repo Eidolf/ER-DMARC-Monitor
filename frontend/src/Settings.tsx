@@ -1,5 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from './AuthContext';
+
+const HomeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '6px', verticalAlign: 'middle'}}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+);
+
+const CloudIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '6px', verticalAlign: 'middle'}}><path d="M17.5 19c3.037 0 5.5-2.463 5.5-5.5 0-2.715-1.962-4.966-4.59-5.41a7.5 7.5 0 1 0-14.41 2.91A5.508 5.508 0 0 0 1 13.5C1 16.537 3.463 19 6.5 19Z"/></svg>
+);
 
 interface GlobalSettings {
   allow_local_login: boolean;
@@ -295,7 +303,7 @@ const Settings: React.FC = () => {
               <p><strong>Username:</strong> {currentUser?.username || '...'}</p>
               <p><strong>Email:</strong> {currentUser?.email || '...'}</p>
               <p><strong>Role:</strong> <span className="status-tag status-pass">{currentUser?.role || '...'}</span></p>
-              <p><strong>Auth Source:</strong> {currentUser?.auth_source === 'local' ? '🏠 Local Account' : '☁️ Microsoft Entra ID'}</p>
+              <p><strong>Auth Source:</strong> {currentUser?.auth_source === 'LOCAL' ? <><HomeIcon/> Local Account</> : <><CloudIcon/> Microsoft Entra ID</>}</p>
             </div>
 
             <div className="settings-subsection">
@@ -532,9 +540,9 @@ const Settings: React.FC = () => {
                     {users.map(u => (
                       <tr key={u.id}>
                         <td>
-                          {u.auth_source === 'local' ? 
-                            <span title="Local Account" style={{color: 'var(--accent-blue)'}}>🏠 Local</span> : 
-                            <span title="Entra ID" style={{color: '#0078d4'}}>☁️ Entra</span>
+                          {u.auth_source === 'LOCAL' ? 
+                            <span title="Local Account" style={{color: 'var(--accent-blue)', display: 'flex', alignItems: 'center'}}><HomeIcon/> Local</span> : 
+                            <span title="Entra ID" style={{color: '#0078d4', display: 'flex', alignItems: 'center'}}><CloudIcon/> Entra</span>
                           }
                         </td>
                         <td>{u.email}</td>

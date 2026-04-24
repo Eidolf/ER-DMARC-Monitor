@@ -40,15 +40,20 @@ const SortIcon = ({ active, direction }: { active: boolean; direction: 'asc' | '
   return <span className="sort-icon active" style={{marginLeft: '8px', color: '#3b82f6'}}>{direction === 'asc' ? '↑' : '↓'}</span>;
 };
 
-interface UploadResult {
-  filename: string;
-  status: 'success' | 'skipped' | 'error';
-  detail?: string;
+interface Domain {
+  id: number;
+  name: string;
+  dmarc_policy: string;
+  dns_summary?: {
+    spf: string;
+    dkim: string;
+    dmarc: string;
+  };
 }
 
 function Dashboard() {
   const { token, role, logout } = useAuth();
-  const [data, setData] = useState<{ id: number, name: string, dmarc_policy: string }[]>([]);
+  const [data, setData] = useState<Domain[]>([]);
   const [stats, setStats] = useState<Stats>({ total_analyzed: 0, spf_failures: 0, dkim_failures: 0, unauthorized_senders: 0 });
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'overview' | 'help' | 'settings'>('overview');
@@ -76,6 +81,25 @@ function Dashboard() {
     logo_url: '/favicon.png'
   });
 
+  const [dnsModal, setDnsModal] = useState<{ domainId: number, domainName: string, type: 'spf' | 'dkim' | 'dmarc' } | null>(null);
+  const [dnsDetails, setDnsDetails] = useState<any>(null);
+  const [dnsLoading, setDnsLoading] = useState(false);
+
+  const handleOpenDnsModal = (domainId: number, domainName: string, type: 'spf' | 'dkim' | 'dmarc') => {
+    setDnsModal({ domainId, domainName, type });
+    setDnsLoading(true);
+    authFetch(`/api/domains/${domainId}/dns`)
+      .then(res => res.json())
+      .then(json => {
+        setDnsDetails(json);
+        setDnsLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setDnsLoading(false);
+      });
+  };
+
   const authFetch = (url: string, options: any = {}) => {
     return fetch(url, {
       ...options,
@@ -94,7 +118,11 @@ function Dashboard() {
 
   const loadData = () => {
     authFetch('/api/domains').then(res => res.json()).then(json => setData(Array.isArray(json) ? json : [])).catch(err => console.error(err));
-    authFetch('/api/reports/stats').then(res => res.json()).then(json => setStats(json)).catch(err => console.error(err)).finally(() => setLoading(false));
+    authFetch('/api/reports/stats')
+      .then(res => res.ok ? res.json() : null)
+      .then(json => { if (json) setStats(json); })
+      .catch(err => console.error(err))
+      .finally(() => setLoading(false));
     fetch('/api/settings/branding').then(res => res.json()).then(json => setSettings(json)).catch(err => console.error(err));
   };
 
@@ -209,7 +237,17 @@ function Dashboard() {
       <div className="ambient-background"></div>
       <header className="glass-header">
         <div className="logo-section" onClick={() => setView('overview')} style={{cursor: 'pointer'}}>
-          {settings.logo_url ? <img src={settings.logo_url} alt="Logo" className="custom-logo" /> : <div className="logo-orb"></div>}
+          <img 
+            src={settings.logo_url || '/favicon.png'} 
+            alt="Logo" 
+            className="custom-logo" 
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+              const sibling = (e.target as HTMLImageElement).nextElementSibling;
+              if (sibling) (sibling as HTMLElement).style.display = 'block';
+            }}
+          />
+          <div className="logo-orb" style={{display: 'none'}}></div>
           <h1>
             <span style={{ color: settings.color_part1 }}>{settings.title_part1}</span>
             <span style={{ color: settings.color_part2 }}>{settings.title_part2}</span>
@@ -241,20 +279,124 @@ function Dashboard() {
         <main className="dashboard-content">
           <div className="hero-section"><h2>Security Posture</h2><p>DMARC monitoring console</p></div>
           <section className="kpi-grid">
-            <div className="glass-card kpi"><h3>Total Analyzed</h3><span className="kpi-value text-gradient">{stats.total_analyzed.toLocaleString()}</span></div>
-            <div className="glass-card kpi"><h3>SPF Failures</h3><span className={stats.spf_failures > 0 ? "kpi-value text-red" : "kpi-value text-gradient"}>{stats.spf_failures.toLocaleString()}</span></div>
-            <div className="glass-card kpi"><h3>DKIM Failures</h3><span className={stats.dkim_failures > 0 ? "kpi-value text-orange" : "kpi-value text-gradient"}>{stats.dkim_failures.toLocaleString()}</span></div>
-            <div className="glass-card kpi"><h3>Unauthorized Senders</h3><span className={stats.unauthorized_senders > 0 ? "kpi-value alert" : "kpi-value text-gradient"}>{stats.unauthorized_senders}</span></div>
+            <div className="glass-card kpi"><h3>Total Analyzed</h3><span className="kpi-value text-gradient">{(stats?.total_analyzed || 0).toLocaleString()}</span></div>
+            <div className="glass-card kpi"><h3>SPF Failures</h3><span className={(stats?.spf_failures || 0) > 0 ? "kpi-value text-red" : "kpi-value text-gradient"}>{(stats?.spf_failures || 0).toLocaleString()}</span></div>
+            <div className="glass-card kpi"><h3>DKIM Failures</h3><span className={(stats?.dkim_failures || 0) > 0 ? "kpi-value text-orange" : "kpi-value text-gradient"}>{(stats?.dkim_failures || 0).toLocaleString()}</span></div>
+            <div className="glass-card kpi"><h3>Unauthorized Senders</h3><span className={(stats?.unauthorized_senders || 0) > 0 ? "kpi-value alert" : "kpi-value text-gradient"}>{stats?.unauthorized_senders || 0}</span></div>
           </section>
           <section className="domains-section">
             <div className="glass-card full-width">
               <div className="card-header"><h3>Monitored Domains</h3></div>
               <table className="modern-table">
-                <thead><tr><th>Domain Name</th><th>Policy</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Domain Name</th><th>SPF Record</th><th>DMARC Policy</th><th>DKIM Status</th><th>Actions</th></tr></thead>
                 <tbody>{data.map((domain) => (
-                    <tr key={domain.id}><td>{domain.name}</td><td><span className={`badge policy-${domain.dmarc_policy || 'none'}`}>p={domain.dmarc_policy || 'none'}</span></td><td><button className="action-btn" onClick={() => handleInspect(domain.name)}>Inspect</button></td></tr>
+                    <tr key={domain.id}>
+                      <td>{domain.name}</td>
+                      <td>
+                        <span 
+                          className={`badge status-${domain.dns_summary?.spf?.toLowerCase().replace(' ', '-') || 'unknown'}`}
+                          onClick={() => handleOpenDnsModal(domain.id, domain.name, 'spf')}
+                          style={{cursor: 'pointer'}}
+                        >
+                          {domain.dns_summary?.spf || 'Unknown'}
+                        </span>
+                      </td>
+                      <td>
+                        <span 
+                          className={`badge policy-${domain.dmarc_policy || 'none'}`}
+                          onClick={() => handleOpenDnsModal(domain.id, domain.name, 'dmarc')}
+                          style={{cursor: 'pointer'}}
+                        >
+                          p={domain.dmarc_policy || 'none'}
+                        </span>
+                      </td>
+                      <td>
+                        <span 
+                          className={`badge status-${domain.dns_summary?.dkim?.toLowerCase().replace(' ', '-') || 'unknown'}`}
+                          onClick={() => handleOpenDnsModal(domain.id, domain.name, 'dkim')}
+                          style={{cursor: 'pointer'}}
+                        >
+                          {domain.dns_summary?.dkim || 'Unknown'}
+                        </span>
+                      </td>
+                      <td><button className="action-btn" onClick={() => handleInspect(domain.name)}>Inspect</button></td>
+                    </tr>
                   ))}</tbody>
               </table>
+              
+              {dnsModal && (
+                <div className="modal-overlay" onClick={() => setDnsModal(null)}>
+                  <div className="modal-content glass-card" style={{maxWidth: '600px'}} onClick={e => e.stopPropagation()}>
+                    <div className="modal-header">
+                      <h3>DNS Inspection: {dnsModal.domainName}</h3>
+                      <button className="close-btn" onClick={() => setDnsModal(null)}>×</button>
+                    </div>
+                    <div className="modal-body">
+                      <div className="modal-section-title">
+                        {dnsModal.type.toUpperCase()} Records
+                      </div>
+                      {dnsLoading ? (
+                        <div style={{padding: '2rem', textAlign: 'center'}}>
+                          <div className="loading-spinner"></div>
+                          <p style={{marginTop: '1rem', color: 'var(--text-secondary)'}}>Querying DNS records...</p>
+                        </div>
+                      ) : dnsDetails ? (
+                        <div className="dns-details">
+                          {dnsModal.type === 'spf' && (
+                            <>
+                              <p><strong>SPF Status:</strong> {dnsDetails.spf.status}</p>
+                              {dnsDetails.spf.records.length > 0 ? (
+                                <div className="dns-record-box">
+                                  {dnsDetails.spf.records.map((r: string, i: number) => (
+                                    <code key={i} className="dns-record">{r}</code>
+                                  ))}
+                                  {dnsDetails.spf.records.length > 1 && <p className="warning-text">⚠️ Multiple SPF records found! This is invalid.</p>}
+                                </div>
+                              ) : <p>No SPF record found.</p>}
+                            </>
+                          )}
+                          {dnsModal.type === 'dmarc' && (
+                            <>
+                              <p><strong>DMARC Status:</strong> {dnsDetails.dmarc.status}</p>
+                              {dnsDetails.dmarc.records.length > 0 ? (
+                                <div className="dns-record-box">
+                                  {dnsDetails.dmarc.records.map((r: string, i: number) => (
+                                    <code key={i} className="dns-record">{r}</code>
+                                  ))}
+                                </div>
+                              ) : <p>No DMARC record found at _dmarc.{dnsModal.domainName}</p>}
+                            </>
+                          )}
+                          {dnsModal.type === 'dkim' && (
+                            <>
+                              <p><strong>DKIM Status (Heuristic):</strong> {dnsDetails.dkim.status}</p>
+                              <p className="hint-text">Note: This is based on a check of common selectors ({dnsDetails.dkim.checked_selectors.join(', ')}).</p>
+                              {dnsDetails.dkim.found_selectors.length > 0 ? (
+                                <div className="dkim-results" style={{marginTop: '1rem'}}>
+                                  {dnsDetails.dkim.found_selectors.map((s: any, i: number) => (
+                                    <div key={i} className="dkim-entry">
+                                      <p><strong>Selector:</strong> {s.selector}</p>
+                                      <code className="dns-record">{s.record}</code>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="no-dkim">
+                                  <p>No DKIM records found for common selectors.</p>
+                                  <p className="hint-text">Check your mail provider documentation for the specific selector used.</p>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ) : <p>Error loading DNS details.</p>}
+                    </div>
+                    <div className="modal-footer" style={{marginTop: '1.5rem', borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', textAlign: 'right'}}>
+                      <button className="action-btn" onClick={() => setDnsModal(null)}>Close</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         </main>
@@ -307,7 +449,24 @@ function Dashboard() {
             </section>
 
             <section className="docs-section glass-card">
-              <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '10px'}}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg> 3. Data & Analysis</h3>
+              <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '10px'}}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> 3. DNS Monitoring</h3>
+              <div className="docs-item">
+                <h4>Authentication Readiness</h4>
+                <p>The <strong>Monitored Domains</strong> table provides a real-time (cached) view of your authentication posture:</p>
+                <ul>
+                  <li><strong>SPF:</strong> Indicates if a valid <code>v=spf1</code> record exists. Multiple records will trigger a warning.</li>
+                  <li><strong>DKIM (Heuristic):</strong> Since DKIM selectors are not public, the system checks for common selectors (e.g., <em>default, google, dkim</em>). A "Not Set" status means no common selectors were found, not necessarily that DKIM is missing.</li>
+                  <li><strong>DMARC:</strong> Displays the published policy (p=none, quarantine, or reject).</li>
+                </ul>
+                <p className="note">Click on any status badge to inspect the full DNS records in a read-only modal.</p>
+              </div>
+            </section>
+          </div>
+
+          <div className="docs-grid" style={{marginTop: '2rem'}}>
+
+            <section className="docs-section glass-card">
+              <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '10px'}}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg> 4. Data & Analysis</h3>
               <div className="docs-item">
                 <h4>Manual Report Upload</h4>
                 <p>Use the <strong>Upload Reports</strong> button in the main navigation. You can drag and drop multiple XML, .gz, or .zip files. The system automatically detects and skips duplicate reports based on the unique Report ID.</p>
@@ -323,7 +482,7 @@ function Dashboard() {
             </section>
 
             <section className="docs-section glass-card">
-              <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '10px'}}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> 4. System Validation</h3>
+              <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '10px'}}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> 5. System Validation</h3>
               <div className="docs-item">
                 <h4>SMTP Ingestion Test</h4>
                 <p>Verify that your DMARC endpoints are reachable in <strong>Settings &gt; SMTP Test</strong>:</p>

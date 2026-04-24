@@ -10,8 +10,8 @@ class UserRole(str, Enum):
     READ_ONLY = "Read-only"
 
 class AuthSource(str, Enum):
-    LOCAL = "local"
-    ENTRA_ID = "entra_id"
+    LOCAL = "LOCAL"
+    ENTRA_ID = "ENTRA_ID"
 
 class User(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)

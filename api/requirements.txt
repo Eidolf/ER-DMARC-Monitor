@@ -10,3 +10,4 @@ passlib[argon2]==1.7.4
 pyotp==2.9.0
 msal==1.28.0
 python-dotenv==1.0.1
+dnspython==2.6.1

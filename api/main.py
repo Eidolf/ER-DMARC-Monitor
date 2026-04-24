@@ -22,6 +22,8 @@ from auth import (
     verify_totp, get_current_user, RoleChecker, get_session
 )
 import entra
+import dns_utils
+from fastapi import BackgroundTasks
 
 DB_DSN = os.getenv("DB_DSN", "sqlite:///database.db")
 engine = create_engine(DB_DSN)
@@ -489,12 +491,54 @@ def create_domain(
     session.refresh(db_domain)
     return db_domain
 
+def refresh_domain_dns(domain_name):
+    dns_utils.get_spf_record(domain_name)
+    dns_utils.get_dmarc_record(domain_name)
+    dns_utils.get_dkim_status_heuristic(domain_name)
+
 @app.get("/domains")
 def get_domains(
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
-    return session.exec(select(Domain)).all()
+    domains = session.exec(select(Domain)).all()
+    results = []
+    for d in domains:
+        spf = dns_utils.r_cache.get(f"dns:spf:{d.name}")
+        dkim = dns_utils.r_cache.get(f"dns:dkim:{d.name}")
+        dmarc = dns_utils.r_cache.get(f"dns:dmarc:{d.name}")
+        
+        if not spf or not dkim or not dmarc:
+            background_tasks.add_task(refresh_domain_dns, d.name)
+            
+        results.append({
+            "id": d.id,
+            "name": d.name,
+            "dmarc_policy": d.dmarc_policy,
+            "dns_summary": {
+                "spf": json.loads(spf)["status"] if spf else "Loading...",
+                "dkim": json.loads(dkim)["status"] if dkim else "Loading...",
+                "dmarc": json.loads(dmarc)["status"] if dmarc else "Loading..."
+            }
+        })
+    return results
+
+@app.get("/domains/{domain_id}/dns")
+def get_domain_dns_details(
+    domain_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    domain = session.get(Domain, domain_id)
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not found")
+    
+    return {
+        "spf": dns_utils.get_spf_record(domain.name),
+        "dmarc": dns_utils.get_dmarc_record(domain.name),
+        "dkim": dns_utils.get_dkim_status_heuristic(domain.name)
+    }
 
 @app.delete("/domains/{domain_id}")
 def delete_domain(
