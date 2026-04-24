@@ -321,6 +321,22 @@ function Dashboard() {
                 </ul>
               </div>
             </section>
+
+            <section className="docs-section glass-card">
+              <h3><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '10px'}}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> 4. System Validation</h3>
+              <div className="docs-item">
+                <h4>SMTP Ingestion Test</h4>
+                <p>Verify that your DMARC endpoints are reachable in <strong>Settings &gt; SMTP Test</strong>:</p>
+                <ul>
+                  <li><strong>Portal Test:</strong> Trigger a real DMARC report processing flow directly from the UI.</li>
+                  <li><strong>Isolation:</strong> All test data is automatically filtered out from your production metrics and dashboards.</li>
+                </ul>
+              </div>
+              <div className="docs-item">
+                <h4>External Validation</h4>
+                <p>Use the provided scripts in <code>/scripts/smtp_tests/</code> to test from external environments (Python, PowerShell, Bash).</p>
+              </div>
+            </section>
           </div>
           <div style={{display: 'flex', justifyContent: 'center', marginTop: '3rem'}}>
             <button className="action-btn primary-btn" onClick={() => setView('overview')}>Return to Dashboard</button>
