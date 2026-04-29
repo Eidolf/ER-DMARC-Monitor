@@ -459,7 +459,7 @@ function Dashboard() {
               )}
 
               {ipModal && (
-                <div className="modal-overlay" onClick={() => setIpModal(null)}>
+                <div className="modal-overlay secondary-modal" onClick={() => setIpModal(null)}>
                   <div className="modal-content glass-card" style={{maxWidth: '650px'}} onClick={e => e.stopPropagation()}>
                     <div className="modal-header">
                       <h3>Source IP Detail: {ipModal}</h3>

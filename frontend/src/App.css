@@ -20,6 +20,30 @@
   padding: 0;
 }
 
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
 body {
   font-family: 'Outfit', sans-serif;
   background-color: var(--bg-dark);
@@ -281,6 +305,10 @@ nav {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+}
+.secondary-modal {
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.4); /* Less dark to see the modal below */
 }
 
 .modal-content {
