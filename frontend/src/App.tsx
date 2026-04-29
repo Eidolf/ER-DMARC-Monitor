@@ -458,66 +458,6 @@ function Dashboard() {
                 </div>
               )}
 
-              {ipModal && (
-                <div className="modal-overlay secondary-modal" onClick={() => setIpModal(null)}>
-                  <div className="modal-content glass-card" style={{maxWidth: '650px'}} onClick={e => e.stopPropagation()}>
-                    <div className="modal-header">
-                      <h3>Source IP Detail: {ipModal}</h3>
-                      <button className="close-btn" onClick={() => setIpModal(null)}>×</button>
-                    </div>
-                    <div className="modal-body">
-                      {ipLoading ? (
-                        <div style={{padding: '2rem', textAlign: 'center'}}>
-                          <div className="loading-spinner"></div>
-                          <p style={{marginTop: '1rem', color: 'var(--text-secondary)'}}>Fetching IP enrichment data...</p>
-                        </div>
-                      ) : ipDetails ? (
-                        <div className="ip-details">
-                          <div className="enrichment-grid">
-                            <div className="enrich-item">
-                              <label>Organization / Owner</label>
-                              <span>{ipDetails.org_name}</span>
-                            </div>
-                            <div className="enrich-item">
-                              <label>ASN</label>
-                              <span>AS{ipDetails.asn} ({ipDetails.asn_org})</span>
-                            </div>
-                            <div className="enrich-item">
-                              <label>Network Range</label>
-                              <span>{ipDetails.network}</span>
-                            </div>
-                            <div className="enrich-item">
-                              <label>Country</label>
-                              <span>{ipDetails.country}</span>
-                            </div>
-                          </div>
-
-                          <div className={`guidance-box ${ipDetails.error ? '' : (detailedRecords.find(r => r.source_ip === ipModal)?.spf_pass ? 'legit' : 'suspicious')}`}>
-                            <div className="guidance-header">
-                              {detailedRecords.find(r => r.source_ip === ipModal)?.spf_pass ? (
-                                <><span style={{color: '#10b981', display: 'flex', alignItems: 'center', gap: '8px'}}><StatusIcon pass={true} size={18} /> SPF Authorized</span></>
-                              ) : (
-                                <><span style={{color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px'}}><StatusIcon pass={false} size={18} /> SPF Unauthorized</span></>
-                              )}
-                            </div>
-                            <div className="guidance-text">
-                              {detailedRecords.find(r => r.source_ip === ipModal)?.spf_pass ? (
-                                "This sender appears to be explicitly authorized via your SPF policy. It matches one of your allowed IP ranges or includes."
-                              ) : (
-                                "This IP address is not covered by your current SPF record. This could indicate a missing 'include' for a mail service, a legacy system that was forgotten, or a potential spoofing attempt."
-                              )}
-                            </div>
-                            <p className="disclaimer">Note: This is an automated indicator based on the reported DMARC results. Use this context to verify if the sender organization is a known partner or service.</p>
-                          </div>
-                        </div>
-                      ) : <p>Error loading IP details.</p>}
-                    </div>
-                    <div className="modal-footer" style={{marginTop: '1.5rem', borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', textAlign: 'right'}}>
-                      <button className="action-btn" onClick={() => setIpModal(null)}>Close</button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </section>
         </main>
@@ -794,6 +734,66 @@ function Dashboard() {
                     </div>
                 </aside>
              </div>
+          </div>
+        </div>
+      )}
+      {ipModal && (
+        <div className="modal-overlay secondary-modal" onClick={() => setIpModal(null)}>
+          <div className="modal-content glass-card" style={{maxWidth: '650px'}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Source IP Detail: {ipModal}</h3>
+              <button className="close-btn" onClick={() => setIpModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              {ipLoading ? (
+                <div style={{padding: '2rem', textAlign: 'center'}}>
+                  <div className="loading-spinner"></div>
+                  <p style={{marginTop: '1rem', color: 'var(--text-secondary)'}}>Fetching IP enrichment data...</p>
+                </div>
+              ) : ipDetails ? (
+                <div className="ip-details">
+                  <div className="enrichment-grid">
+                    <div className="enrich-item">
+                      <label>Organization / Owner</label>
+                      <span>{ipDetails.org_name}</span>
+                    </div>
+                    <div className="enrich-item">
+                      <label>ASN</label>
+                      <span>AS{ipDetails.asn} ({ipDetails.asn_org})</span>
+                    </div>
+                    <div className="enrich-item">
+                      <label>Network Range</label>
+                      <span>{ipDetails.network}</span>
+                    </div>
+                    <div className="enrich-item">
+                      <label>Country</label>
+                      <span>{ipDetails.country}</span>
+                    </div>
+                  </div>
+
+                  <div className={`guidance-box ${ipDetails.error ? '' : (detailedRecords.find(r => r.source_ip === ipModal)?.spf_pass ? 'legit' : 'suspicious')}`}>
+                    <div className="guidance-header">
+                      {detailedRecords.find(r => r.source_ip === ipModal)?.spf_pass ? (
+                        <><span style={{color: '#10b981', display: 'flex', alignItems: 'center', gap: '8px'}}><StatusIcon pass={true} size={18} /> SPF Authorized</span></>
+                      ) : (
+                        <><span style={{color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px'}}><StatusIcon pass={false} size={18} /> SPF Unauthorized</span></>
+                      )}
+                    </div>
+                    <div className="guidance-text">
+                      {detailedRecords.find(r => r.source_ip === ipModal)?.spf_pass ? (
+                        "This sender appears to be explicitly authorized via your SPF policy. It matches one of your allowed IP ranges or includes."
+                      ) : (
+                        "This IP address is not covered by your current SPF record. This could indicate a missing 'include' for a mail service, a legacy system that was forgotten, or a potential spoofing attempt."
+                      )}
+                    </div>
+                    <p className="disclaimer">Note: This is an automated indicator based on the reported DMARC results. Use this context to verify if the sender organization is a known partner or service.</p>
+                  </div>
+                </div>
+              ) : <p>Error loading IP details.</p>}
+            </div>
+            <div className="modal-footer" style={{marginTop: '1.5rem', borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', textAlign: 'right'}}>
+              <button className="action-btn" onClick={() => setIpModal(null)}>Close</button>
+            </div>
           </div>
         </div>
       )}
