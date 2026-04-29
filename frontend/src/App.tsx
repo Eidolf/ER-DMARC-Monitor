@@ -40,6 +40,22 @@ const SortIcon = ({ active, direction }: { active: boolean; direction: 'asc' | '
   return <span className="sort-icon active" style={{marginLeft: '8px', color: '#3b82f6'}}>{direction === 'asc' ? '↑' : '↓'}</span>;
 };
 
+const StatusIcon = ({ pass, size = 16 }: { pass: boolean; size?: number }) => {
+  if (pass) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#10b981' }}>
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    );
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ef4444' }}>
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  );
+};
+
 interface Domain {
   id: number;
   name: string;
@@ -479,9 +495,9 @@ function Dashboard() {
                           <div className={`guidance-box ${ipDetails.error ? '' : (detailedRecords.find(r => r.source_ip === ipModal)?.spf_pass ? 'legit' : 'suspicious')}`}>
                             <div className="guidance-header">
                               {detailedRecords.find(r => r.source_ip === ipModal)?.spf_pass ? (
-                                <><span style={{color: '#10b981'}}>✅ SPF Authorized</span></>
+                                <><span style={{color: '#10b981', display: 'flex', alignItems: 'center', gap: '8px'}}><StatusIcon pass={true} size={18} /> SPF Authorized</span></>
                               ) : (
-                                <><span style={{color: '#ef4444'}}>❌ SPF Unauthorized</span></>
+                                <><span style={{color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px'}}><StatusIcon pass={false} size={18} /> SPF Unauthorized</span></>
                               )}
                             </div>
                             <div className="guidance-text">
@@ -735,8 +751,9 @@ function Dashboard() {
                                                 className={`ip-badge ${r.spf_pass ? 'ip-legit' : 'ip-suspicious'}`}
                                                 onClick={(e) => { e.stopPropagation(); handleOpenIpModal(r.source_ip); }}
                                                 title={r.spf_pass ? "SPF-authorized sender" : "Sender not covered by SPF"}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                                               >
-                                                {r.spf_pass ? '✅' : '❌'} {r.source_ip}
+                                                <StatusIcon pass={r.spf_pass} size={14} /> {r.source_ip}
                                               </span>
                                             </td>
                                             <td>{r.count}</td><td>{r.org_name}</td><td>{new Date(r.date).toLocaleDateString()}</td>
