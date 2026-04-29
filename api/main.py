@@ -26,6 +26,7 @@ from auth import (
 )
 import entra
 import dns_utils
+import ip_utils
 from fastapi import BackgroundTasks
 import redis
 
@@ -743,6 +744,14 @@ def get_domain_records(
         }
         for r in results
     ]
+
+@app.get("/ips/{ip_address}")
+def get_ip_details(
+    ip_address: str,
+    user: User = Depends(get_current_user)
+):
+    enrichment = ip_utils.get_ip_enrichment(ip_address)
+    return enrichment
 
 @app.get("/reports/stats")
 def get_report_stats(
