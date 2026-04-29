@@ -66,6 +66,7 @@ const Settings: React.FC = () => {
   const [triggering, setTriggering] = useState(false);
 
   // User Management states
+  const [users, setUsers] = useState<any[]>([]);
   const [newUser, setNewUser] = useState({ email: '', username: '', password: '', role: 'Analyst' });
   
   // SMTP Inbound states
