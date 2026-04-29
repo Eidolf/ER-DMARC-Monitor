@@ -40,7 +40,7 @@ interface AuditLog {
 
 const Settings: React.FC = () => {
   const { token, role } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'domains' | 'branding' | 'auth' | 'audit' | 'smtp' | 'users'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'domains' | 'branding' | 'auth' | 'audit' | 'smtp' | 'smtp_inbound' | 'users'>('profile');
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
   const [domains, setDomains] = useState<{id: number, name: string}[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -66,8 +66,12 @@ const Settings: React.FC = () => {
   const [triggering, setTriggering] = useState(false);
 
   // User Management states
-  const [users, setUsers] = useState<any[]>([]);
   const [newUser, setNewUser] = useState({ email: '', username: '', password: '', role: 'Analyst' });
+  
+  // SMTP Inbound states
+  const [inboundConfig, setInboundConfig] = useState<any[]>([]);
+  const [newInboundDomain, setNewInboundDomain] = useState('');
+  const [newRecipient, setNewRecipient] = useState<{domainId: number, localPart: string}>({ domainId: 0, localPart: '' });
 
   const isAdmin = role === 'Admin';
 
@@ -78,6 +82,7 @@ const Settings: React.FC = () => {
       if (activeTab === 'audit') fetchAuditLogs();
       if (activeTab === 'domains') fetchDomains();
       if (activeTab === 'smtp') fetchTestResults();
+      if (activeTab === 'smtp_inbound') fetchInboundConfig();
       if (activeTab === 'users') fetchUsers();
     }
   }, [activeTab]);
@@ -115,6 +120,65 @@ const Settings: React.FC = () => {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (res.ok) setUsers(await res.json());
+  };
+
+  const fetchInboundConfig = async () => {
+    const res = await fetch('/api/admin/smtp/inbound', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) setInboundConfig(await res.json());
+  };
+
+  const handleAddInboundDomain = async () => {
+    if (!newInboundDomain) return;
+    const res = await fetch('/api/admin/smtp/inbound/domains', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain_name: newInboundDomain })
+    });
+    if (res.ok) {
+      setNewInboundDomain('');
+      fetchInboundConfig();
+    }
+  };
+
+  const handleToggleInboundDomain = async (id: number, current: boolean) => {
+    const res = await fetch(`/api/admin/smtp/inbound/domains/${id}`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !current })
+    });
+    if (res.ok) fetchInboundConfig();
+  };
+
+  const handleDeleteInboundDomain = async (id: number) => {
+    if (!window.confirm('Delete this listening domain and all its recipients?')) return;
+    const res = await fetch(`/api/admin/smtp/inbound/domains/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) fetchInboundConfig();
+  };
+
+  const handleAddRecipient = async (domainId: number) => {
+    if (!newRecipient.localPart || newRecipient.domainId !== domainId) return;
+    const res = await fetch(`/api/admin/smtp/inbound/domains/${domainId}/recipients`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ local_part: newRecipient.localPart })
+    });
+    if (res.ok) {
+      setNewRecipient({ domainId: 0, localPart: '' });
+      fetchInboundConfig();
+    }
+  };
+
+  const handleDeleteRecipient = async (id: number) => {
+    const res = await fetch(`/api/admin/smtp/inbound/recipients/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) fetchInboundConfig();
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -286,9 +350,10 @@ const Settings: React.FC = () => {
             <button className={activeTab === 'domains' ? 'active' : ''} onClick={() => setActiveTab('domains')}>Domains</button>
             <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>User Management</button>
             <button className={activeTab === 'auth' ? 'active' : ''} onClick={() => setActiveTab('auth')}>Authentication</button>
-            <button className={activeTab === 'smtp' ? 'active' : ''} onClick={() => setActiveTab('smtp')}>SMTP Test</button>
-            <button className={activeTab === 'branding' ? 'active' : ''} onClick={() => setActiveTab('branding')}>Branding</button>
-            <button className={activeTab === 'audit' ? 'active' : ''} onClick={() => setActiveTab('audit')}>Security Audit</button>
+            <button onClick={() => setActiveTab('branding')} className={activeTab === 'branding' ? 'active' : ''}>Branding</button>
+            <button onClick={() => setActiveTab('smtp')} className={activeTab === 'smtp' ? 'active' : ''}>SMTP Test</button>
+            <button onClick={() => setActiveTab('smtp_inbound')} className={activeTab === 'smtp_inbound' ? 'active' : ''}>SMTP Inbound</button>
+            <button onClick={() => setActiveTab('audit')} className={activeTab === 'audit' ? 'active' : ''}>Security Audit</button>
           </>
         )}
       </div>
@@ -631,6 +696,76 @@ const Settings: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'smtp_inbound' && (
+          <div className="settings-section">
+            <h3>SMTP Inbound Configuration</h3>
+            <p className="subtitle">Configure listening domains and accepted recipients for direct DMARC report delivery.</p>
+
+            <div className="settings-subsection">
+              <h4>Add Listening Domain</h4>
+              <div className="input-group">
+                <input type="text" className="text-input" placeholder="dmarc.example.com" value={newInboundDomain} onChange={e => setNewInboundDomain(e.target.value)} />
+                <button onClick={handleAddInboundDomain} className="action-btn primary-btn">Add Domain</button>
+              </div>
+              <p className="hint-text">Ensure your MX records point to this system's IP/hostname.</p>
+            </div>
+
+            <div className="settings-subsection">
+              <h4>Configured Endpoints</h4>
+              {inboundConfig.map(domain => (
+                <div key={domain.id} className="glass-card" style={{marginBottom: '1.5rem', padding: '1.5rem', border: domain.is_active ? '1px solid var(--border-glass)' : '1px solid rgba(239, 68, 68, 0.3)'}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+                    <div>
+                      <h5 style={{fontSize: '1.1rem', margin: 0}}>{domain.domain_name}</h5>
+                      <span className={`status-tag ${domain.is_active ? 'status-pass' : 'status-fail'}`} style={{fontSize: '0.7rem'}}>
+                        {domain.is_active ? 'Accepting Traffic' : 'Disabled'}
+                      </span>
+                    </div>
+                    <div style={{display: 'flex', gap: '0.5rem'}}>
+                      <button onClick={() => handleToggleInboundDomain(domain.id, domain.is_active)} className="action-btn small-btn">
+                        {domain.is_active ? 'Disable' : 'Enable'}
+                      </button>
+                      <button onClick={() => handleDeleteInboundDomain(domain.id)} className="action-btn small-btn danger-btn">Remove</button>
+                    </div>
+                  </div>
+
+                  <div className="recipients-list" style={{background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '1rem'}}>
+                    <h6 style={{marginBottom: '0.5rem', textTransform: 'uppercase', fontSize: '0.75rem', color: 'var(--text-secondary)'}}>Accepted Recipients</h6>
+                    <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem'}}>
+                      {domain.recipients.map((r: any) => (
+                        <div key={r.id} className="badge" style={{display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)'}}>
+                          {r.local_part}@{domain.domain_name}
+                          <span onClick={() => handleDeleteRecipient(r.id)} style={{cursor: 'pointer', opacity: 0.6}}>&times;</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="input-group small">
+                      <input 
+                        type="text" 
+                        className="text-input" 
+                        placeholder="e.g. report" 
+                        style={{fontSize: '0.85rem'}}
+                        value={newRecipient.domainId === domain.id ? newRecipient.localPart : ''} 
+                        onChange={e => setNewRecipient({domainId: domain.id, localPart: e.target.value})} 
+                      />
+                      <button onClick={() => handleAddRecipient(domain.id)} className="action-btn small-btn">Add Address</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {inboundConfig.length === 0 && <p style={{color: 'var(--text-secondary)', fontStyle: 'italic'}}>No listening domains configured.</p>}
+            </div>
+
+            <div className="settings-subsection">
+              <h4>Server Information</h4>
+              <div className="glass-card" style={{padding: '1rem', background: 'rgba(59, 130, 246, 0.05)', borderLeft: '3px solid var(--accent-blue)'}}>
+                <p style={{fontSize: '0.9rem'}}><strong>SMTP Port:</strong> 25 (Standard) / 2525 (Internal)</p>
+                <p style={{fontSize: '0.9rem', marginTop: '0.5rem'}}><strong>Security:</strong> STARTTLS supported. Incoming traffic is validated against the configured domains and recipients above.</p>
               </div>
             </div>
           </div>

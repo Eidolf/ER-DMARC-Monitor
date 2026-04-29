@@ -11,6 +11,35 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 RAW_PATH = os.getenv("RAW_PATH", "/data/raw")
 
 class DMARCReceivingHandler:
+    async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
+        try:
+            if '@' not in address:
+                return '501 Bad recipient address syntax'
+            local_part, domain = address.lower().split('@')
+        except ValueError:
+            return '501 Bad recipient address syntax'
+
+        try:
+            r = redis.from_url(REDIS_URL)
+            
+            # Check if domain is allowed
+            if not r.sismember("smtp:allowed:domains", domain):
+                print(f"Rejected RCPT: Domain {domain} not in allowed list")
+                return '550 Relay not permitted'
+                
+            # Check if recipient is allowed for this domain
+            if not r.sismember(f"smtp:allowed:recipients:{domain}", local_part):
+                print(f"Rejected RCPT: Recipient {local_part} not in allowed list for {domain}")
+                return '550 No such user here'
+        except Exception as e:
+            print(f"Redis lookup error: {e}")
+            # Fail closed or open? Requirement says "SMTP messages to non-configured recipients must be rejected"
+            # But if Redis is down, we might want to log and temporarily reject
+            return '451 Temporary local error'
+
+        envelope.rcpt_tos.append(address)
+        return '250 OK'
+
     async def handle_DATA(self, server, session, envelope):
         message = message_from_bytes(envelope.content)
         is_test = message.get("X-DMARC-Test", "").lower() == "true"

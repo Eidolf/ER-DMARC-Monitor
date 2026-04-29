@@ -84,6 +84,7 @@ function Dashboard() {
   const [dnsModal, setDnsModal] = useState<{ domainId: number, domainName: string, type: 'spf' | 'dkim' | 'dmarc' } | null>(null);
   const [dnsDetails, setDnsDetails] = useState<any>(null);
   const [dnsLoading, setDnsLoading] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'spf' | 'dkim'>('all');
 
   const handleOpenDnsModal = (domainId: number, domainName: string, type: 'spf' | 'dkim' | 'dmarc') => {
     setDnsModal({ domainId, domainName, type });
@@ -144,12 +145,13 @@ function Dashboard() {
     authFetch(`/api/domains/${id}`, { method: 'DELETE' }).then(() => loadData());
   };
 
-  const handleInspect = (domainName: string) => {
+  const handleInspect = (domainName: string, initialFilter: 'all' | 'spf' | 'dkim' = 'all') => {
     setInspectDomain(domainName);
     setInspectTab('log');
     setDetailedRecords([]);
     setExpandedRecordId(null);
     setSearchQuery('');
+    setFilterType(initialFilter);
     setSortConfig({ key: 'date', direction: 'desc' });
     authFetch(`/api/domains/${domainName}/records`)
       .then(res => res.json())
@@ -203,6 +205,10 @@ function Dashboard() {
       r.source_ip.toLowerCase().includes(searchQuery.toLowerCase()) || 
       r.org_name.toLowerCase().includes(searchQuery.toLowerCase())
     );
+    
+    if (filterType === 'spf') filtered = filtered.filter(r => !r.spf_pass);
+    if (filterType === 'dkim') filtered = filtered.filter(r => !r.dkim_pass);
+
     if (sortConfig.direction) {
       filtered.sort((a, b) => {
         const valA = (a as any)[sortConfig.key];
@@ -213,7 +219,7 @@ function Dashboard() {
       });
     }
     return filtered;
-  }, [detailedRecords, searchQuery, sortConfig]);
+  }, [detailedRecords, searchQuery, sortConfig, filterType]);
 
   const totalInRecords = detailedRecords.reduce((acc, r) => acc + r.count, 0);
   const spfPassCount = detailedRecords.filter(r => r.spf_pass).reduce((acc, r) => acc + r.count, 0);
@@ -280,18 +286,38 @@ function Dashboard() {
           <div className="hero-section"><h2>Security Posture</h2><p>DMARC monitoring console</p></div>
           <section className="kpi-grid">
             <div className="glass-card kpi"><h3>Total Analyzed</h3><span className="kpi-value text-gradient">{(stats?.total_analyzed || 0).toLocaleString()}</span></div>
-            <div className="glass-card kpi"><h3>SPF Failures</h3><span className={(stats?.spf_failures || 0) > 0 ? "kpi-value text-red" : "kpi-value text-gradient"}>{(stats?.spf_failures || 0).toLocaleString()}</span></div>
-            <div className="glass-card kpi"><h3>DKIM Failures</h3><span className={(stats?.dkim_failures || 0) > 0 ? "kpi-value text-orange" : "kpi-value text-gradient"}>{(stats?.dkim_failures || 0).toLocaleString()}</span></div>
+            <div className="glass-card kpi clickable" onClick={() => { 
+              const domainWithFail = data.find(d => d.spf_fail_count > 0);
+              if(domainWithFail) handleInspect(domainWithFail.name, 'spf'); 
+              else if(data.length > 0) handleInspect(data[0].name, 'spf');
+            }} style={{cursor: 'pointer'}}>
+              <h3>SPF Failures</h3>
+              <span className={(stats?.spf_failures || 0) > 0 ? "kpi-value text-red" : "kpi-value text-gradient"}>{(stats?.spf_failures || 0).toLocaleString()}</span>
+            </div>
+            <div className="glass-card kpi clickable" onClick={() => { 
+              const domainWithFail = data.find(d => d.dkim_fail_count > 0);
+              if(domainWithFail) handleInspect(domainWithFail.name, 'dkim'); 
+              else if(data.length > 0) handleInspect(data[0].name, 'dkim');
+            }} style={{cursor: 'pointer'}}>
+              <h3>DKIM Failures</h3>
+              <span className={(stats?.dkim_failures || 0) > 0 ? "kpi-value text-orange" : "kpi-value text-gradient"}>{(stats?.dkim_failures || 0).toLocaleString()}</span>
+            </div>
             <div className="glass-card kpi"><h3>Unauthorized Senders</h3><span className={(stats?.unauthorized_senders || 0) > 0 ? "kpi-value alert" : "kpi-value text-gradient"}>{stats?.unauthorized_senders || 0}</span></div>
           </section>
           <section className="domains-section">
             <div className="glass-card full-width">
               <div className="card-header"><h3>Monitored Domains</h3></div>
               <table className="modern-table">
-                <thead><tr><th>Domain Name</th><th>SPF Record</th><th>DMARC Policy</th><th>DKIM Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Domain Name</th><th>Failures (30d)</th><th>SPF Record</th><th>DMARC Policy</th><th>DKIM Status</th><th>Actions</th></tr></thead>
                 <tbody>{data.map((domain) => (
                     <tr key={domain.id}>
                       <td>{domain.name}</td>
+                      <td>
+                        <div style={{display: 'flex', gap: '0.4rem'}}>
+                          <span className={`badge ${domain.spf_fail_count > 0 ? 'status-fail' : 'status-pass'}`} style={{cursor: 'pointer', fontSize: '0.7rem', padding: '2px 6px'}} onClick={() => handleInspect(domain.name, 'spf')}>SPF: {domain.spf_fail_count}</span>
+                          <span className={`badge ${domain.dkim_fail_count > 0 ? 'status-fail' : 'status-pass'}`} style={{cursor: 'pointer', fontSize: '0.7rem', padding: '2px 6px'}} onClick={() => handleInspect(domain.name, 'dkim')}>DKIM: {domain.dkim_fail_count}</span>
+                        </div>
+                      </td>
                       <td>
                         <span 
                           className={`badge status-${domain.dns_summary?.spf?.toLowerCase().replace(' ', '-') || 'unknown'}`}
@@ -596,8 +622,18 @@ function Dashboard() {
              <div className="analysis-grid">
                 <div className="analysis-col">
                     <div className="report-summary-strip" style={{margin: '0', width: '100%', justifyContent: 'space-around'}}>
-                        <div className="summary-item"><label>Volume</label><span>{totalInRecords.toLocaleString()}</span></div>
-                        <div className="summary-item"><label>Health</label><span>{totalInRecords > 0 ? Math.round(((spfPassCount + dkimPassCount) / (2 * totalInRecords)) * 100) : 0}%</span></div>
+                        <div className={`summary-item ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')} style={{cursor: 'pointer'}}>
+                          <label>Volume</label><span>{totalInRecords.toLocaleString()}</span>
+                        </div>
+                        <div className={`summary-item ${filterType === 'spf' ? 'active' : ''}`} onClick={() => setFilterType('spf')} style={{cursor: 'pointer'}}>
+                          <label>SPF Fail</label><span className={spfPassCount < totalInRecords ? 'text-red' : ''}>{totalInRecords - spfPassCount}</span>
+                        </div>
+                        <div className={`summary-item ${filterType === 'dkim' ? 'active' : ''}`} onClick={() => setFilterType('dkim')} style={{cursor: 'pointer'}}>
+                          <label>DKIM Fail</label><span className={dkimPassCount < totalInRecords ? 'text-orange' : ''}>{totalInRecords - dkimPassCount}</span>
+                        </div>
+                        <div className="summary-item">
+                          <label>Health</label><span>{totalInRecords > 0 ? Math.round(((spfPassCount + dkimPassCount) / (2 * totalInRecords)) * 100) : 0}%</span>
+                        </div>
                     </div>
                     <div className="scroll-box" style={{marginTop: '1rem', minHeight: '450px'}}>
                         {inspectTab === 'log' ? (

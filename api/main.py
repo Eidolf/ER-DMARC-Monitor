@@ -16,7 +16,10 @@ import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
 
-from models import Domain, ReportMetadata, ReportRecord, User, UserRole, SystemSettings, LoginAudit, AuthSource
+from models import (
+    Domain, ReportMetadata, ReportRecord, User, UserRole, SystemSettings, LoginAudit, AuthSource,
+    SMTPListeningDomain, SMTPRecipient
+)
 from auth import (
     get_password_hash, verify_password, create_access_token, create_mfa_token,
     verify_totp, get_current_user, RoleChecker, get_session
@@ -24,6 +27,26 @@ from auth import (
 import entra
 import dns_utils
 from fastapi import BackgroundTasks
+import redis
+
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+r_client = redis.from_url(REDIS_URL)
+
+def sync_smtp_config(session: Session):
+    # Clear existing
+    keys = r_client.keys("smtp:allowed:*")
+    if keys:
+        try:
+            r_client.delete(*keys)
+        except:
+            pass
+    
+    domains = session.exec(select(SMTPListeningDomain).where(SMTPListeningDomain.is_active == True)).all()
+    for d in domains:
+        r_client.sadd("smtp:allowed:domains", d.domain_name.lower())
+        recipients = session.exec(select(SMTPRecipient).where(SMTPRecipient.listening_domain_id == d.id, SMTPRecipient.is_active == True)).all()
+        for rec in recipients:
+            r_client.sadd(f"smtp:allowed:recipients:{d.domain_name.lower()}", rec.local_part.lower())
 
 DB_DSN = os.getenv("DB_DSN", "sqlite:///database.db")
 engine = create_engine(DB_DSN)
@@ -87,6 +110,135 @@ def log_audit(session: Session, user_id: int, ip: str, method: str, status: str,
     session.commit()
 
 # --- Settings & Admin Endpoints ---
+
+@app.patch("/settings/branding")
+def update_branding(
+    update: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    settings = session.exec(select(SystemSettings)).first()
+    for key, value in update.items():
+        if hasattr(settings, key):
+            setattr(settings, key, value)
+    session.add(settings)
+    session.commit()
+    session.refresh(settings)
+    return settings
+
+# --- SMTP Inbound Endpoints ---
+
+class ListeningDomainCreate(BaseModel):
+    domain_name: str
+
+class RecipientCreate(BaseModel):
+    local_part: str
+
+@app.get("/admin/smtp/inbound")
+def get_smtp_inbound_config(
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    domains = session.exec(select(SMTPListeningDomain)).all()
+    results = []
+    for d in domains:
+        recipients = session.exec(select(SMTPRecipient).where(SMTPRecipient.listening_domain_id == d.id)).all()
+        results.append({
+            "id": d.id,
+            "domain_name": d.domain_name,
+            "is_active": d.is_active,
+            "recipients": recipients
+        })
+    return results
+
+@app.post("/admin/smtp/inbound/domains")
+def add_listening_domain(
+    domain: ListeningDomainCreate,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    existing = session.exec(select(SMTPListeningDomain).where(SMTPListeningDomain.domain_name == domain.domain_name)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Domain already exists")
+    db_domain = SMTPListeningDomain(domain_name=domain.domain_name)
+    session.add(db_domain)
+    session.commit()
+    sync_smtp_config(session)
+    return db_domain
+
+@app.patch("/admin/smtp/inbound/domains/{domain_id}")
+def update_listening_domain(
+    domain_id: int,
+    update: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    domain = session.get(SMTPListeningDomain, domain_id)
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not found")
+    for key, value in update.items():
+        if hasattr(domain, key):
+            setattr(domain, key, value)
+    session.add(domain)
+    session.commit()
+    sync_smtp_config(session)
+    return domain
+
+@app.delete("/admin/smtp/inbound/domains/{domain_id}")
+def delete_listening_domain(
+    domain_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    domain = session.get(SMTPListeningDomain, domain_id)
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not found")
+    # Delete recipients first
+    recipients = session.exec(select(SMTPRecipient).where(SMTPRecipient.listening_domain_id == domain_id)).all()
+    for r in recipients:
+        session.delete(r)
+    session.delete(domain)
+    session.commit()
+    sync_smtp_config(session)
+    return {"status": "success"}
+
+@app.post("/admin/smtp/inbound/domains/{domain_id}/recipients")
+def add_recipient(
+    domain_id: int,
+    recipient: RecipientCreate,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    domain = session.get(SMTPListeningDomain, domain_id)
+    if not domain:
+        raise HTTPException(status_code=404, detail="Domain not found")
+    
+    existing = session.exec(select(SMTPRecipient).where(
+        SMTPRecipient.listening_domain_id == domain_id,
+        SMTPRecipient.local_part == recipient.local_part
+    )).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Recipient already exists")
+        
+    db_recipient = SMTPRecipient(listening_domain_id=domain_id, local_part=recipient.local_part)
+    session.add(db_recipient)
+    session.commit()
+    sync_smtp_config(session)
+    return db_recipient
+
+@app.delete("/admin/smtp/inbound/recipients/{recipient_id}")
+def delete_recipient(
+    recipient_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN]))
+):
+    recipient = session.get(SMTPRecipient, recipient_id)
+    if not recipient:
+        raise HTTPException(status_code=404, detail="Recipient not found")
+    session.delete(recipient)
+    session.commit()
+    sync_smtp_config(session)
+    return {"status": "success"}
 
 @app.get("/settings/global")
 def get_global_settings(
@@ -512,10 +664,16 @@ def get_domains(
         if not spf or not dkim or not dmarc:
             background_tasks.add_task(refresh_domain_dns, d.name)
             
+        # Failure stats
+        spf_fails = session.exec(select(func.sum(ReportRecord.count)).join(ReportMetadata).where(ReportMetadata.domain_name == d.name, ReportRecord.spf_pass == False)).one() or 0
+        dkim_fails = session.exec(select(func.sum(ReportRecord.count)).join(ReportMetadata).where(ReportMetadata.domain_name == d.name, ReportRecord.dkim_pass == False)).one() or 0
+            
         results.append({
             "id": d.id,
             "name": d.name,
             "dmarc_policy": d.dmarc_policy,
+            "spf_fail_count": spf_fails,
+            "dkim_fail_count": dkim_fails,
             "dns_summary": {
                 "spf": json.loads(spf)["status"] if spf else "Loading...",
                 "dkim": json.loads(dkim)["status"] if dkim else "Loading...",

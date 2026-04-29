@@ -108,3 +108,16 @@ class ReportRecord(SQLModel, table=True):
     
     report: ReportMetadata = Relationship(sa_relationship=relationship("ReportMetadata", back_populates="records"))
 
+
+class SMTPListeningDomain(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    domain_name: str = Field(index=True, unique=True)
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class SMTPRecipient(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    listening_domain_id: int = Field(foreign_key="smtplisteningdomain.id")
+    local_part: str = Field(index=True) # e.g. "report"
+    is_active: bool = Field(default=True)
+    is_dmarc_compliant: bool = Field(default=True)
