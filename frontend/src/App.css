@@ -325,7 +325,9 @@ nav {
 }
 .scroll-box {
   max-height: 60vh;
-  overflow-y: auto;
+  overflow: auto;
+  width: 100%;
+  max-width: 100%;
   margin-top: 1rem;
 }
 .status-tag {
