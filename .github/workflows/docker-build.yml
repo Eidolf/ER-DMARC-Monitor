@@ -7,10 +7,8 @@ on:
       - 'v*.*.*' # Release / version tag
 
 env:
-  # Use ghcr.io by default. Change to docker.io for Docker Hub
   REGISTRY: ghcr.io
-  # Replace with your lowercase registry namespace/project name
-  IMAGE_PREFIX: erdmarc
+  ACT: "false"
 
 jobs:
   build:
@@ -48,13 +46,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Lowercase repository name
+        run: echo "REPO=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         env:
           GITHUB_TOKEN: ${{ env.ACT == 'true' && '' || secrets.GITHUB_TOKEN }}
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.component.name }}
+          images: ${{ env.REGISTRY }}/${{ env.REPO }}-${{ matrix.component.name }}
+
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
