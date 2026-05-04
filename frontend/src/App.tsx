@@ -179,7 +179,7 @@ function Dashboard() {
     authFetch(`/api/domains/${id}`, { method: 'DELETE' }).then(() => loadData());
   };
 
-  const handleInspect = (domainName: string, initialFilter: 'all' | 'spf' | 'dkim' = 'all') => {
+  const handleInspect = (domainName: string | null, initialFilter: 'all' | 'spf' | 'dkim' = 'all') => {
     setInspectDomain(domainName);
     setInspectTab('log');
     setDetailedRecords([]);
@@ -187,7 +187,8 @@ function Dashboard() {
     setSearchQuery('');
     setFilterType(initialFilter);
     setSortConfig({ key: 'date', direction: 'desc' });
-    authFetch(`/api/domains/${domainName}/records`)
+    const url = domainName ? `/api/domains/${domainName}/records` : '/api/reports/records';
+    authFetch(url)
       .then(res => res.json())
       .then(json => { if (Array.isArray(json)) setDetailedRecords(json); })
       .catch(err => console.error(err));
@@ -320,19 +321,11 @@ function Dashboard() {
           <div className="hero-section"><h2>Security Posture</h2><p>DMARC monitoring console</p></div>
           <section className="kpi-grid">
             <div className="glass-card kpi"><h3>Total Analyzed</h3><span className="kpi-value text-gradient">{(stats?.total_analyzed || 0).toLocaleString()}</span></div>
-            <div className="glass-card kpi clickable" onClick={() => { 
-              const domainWithFail = data.find(d => d.spf_fail_count > 0);
-              if(domainWithFail) handleInspect(domainWithFail.name, 'spf'); 
-              else if(data.length > 0) handleInspect(data[0].name, 'spf');
-            }} style={{cursor: 'pointer'}}>
+            <div className="glass-card kpi clickable" onClick={() => handleInspect(null, 'spf')} style={{cursor: 'pointer'}}>
               <h3>SPF Failures</h3>
               <span className={(stats?.spf_failures || 0) > 0 ? "kpi-value text-red" : "kpi-value text-gradient"}>{(stats?.spf_failures || 0).toLocaleString()}</span>
             </div>
-            <div className="glass-card kpi clickable" onClick={() => { 
-              const domainWithFail = data.find(d => d.dkim_fail_count > 0);
-              if(domainWithFail) handleInspect(domainWithFail.name, 'dkim'); 
-              else if(data.length > 0) handleInspect(data[0].name, 'dkim');
-            }} style={{cursor: 'pointer'}}>
+            <div className="glass-card kpi clickable" onClick={() => handleInspect(null, 'dkim')} style={{cursor: 'pointer'}}>
               <h3>DKIM Failures</h3>
               <span className={(stats?.dkim_failures || 0) > 0 ? "kpi-value text-orange" : "kpi-value text-gradient"}>{(stats?.dkim_failures || 0).toLocaleString()}</span>
             </div>
@@ -644,7 +637,7 @@ function Dashboard() {
         <div className="modal-overlay">
           <div className="glass-card modal-content wide-modal" style={{ padding: '2rem' }}>
              <div className="modal-header">
-                <div><h2>Deep Analysis: {inspectDomain}</h2><p>Forensic overview</p></div>
+                <div><h2>{inspectDomain ? `Deep Analysis: ${inspectDomain}` : 'Global Forensic Analysis'}</h2><p>Forensic overview</p></div>
                 <div className="header-actions">
                     <input type="text" placeholder="Search..." className="text-input" style={{ width: '200px', marginRight: '1rem' }} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     <button onClick={() => setInspectDomain(null)} className="close-btn">&times;</button>
@@ -676,6 +669,7 @@ function Dashboard() {
                                 <thead>
                                     <tr>
                                     <th className="sortable-header" onClick={() => handleSort('source_ip')}><div className="th-content">Source IP <SortIcon active={sortConfig.key==='source_ip'} direction={sortConfig.direction} /></div></th>
+                                    {!inspectDomain && <th>Domain</th>}
                                     <th className="sortable-header" onClick={() => handleSort('count')}><div className="th-content">Volume <SortIcon active={sortConfig.key==='count'} direction={sortConfig.direction} /></div></th>
                                     <th className="sortable-header" onClick={() => handleSort('org_name')}><div className="th-content">Reporter <SortIcon active={sortConfig.key==='org_name'} direction={sortConfig.direction} /></div></th>
                                     <th className="sortable-header" onClick={() => handleSort('date')}><div className="th-content">Date <SortIcon active={sortConfig.key==='date'} direction={sortConfig.direction} /></div></th>
@@ -696,6 +690,7 @@ function Dashboard() {
                                                 <StatusIcon pass={r.spf_pass} size={14} /> {r.source_ip}
                                               </span>
                                             </td>
+                                            {!inspectDomain && <td style={{fontSize: '0.8rem', opacity: 0.8}}>{(r as any).domain_name}</td>}
                                             <td>{r.count}</td><td>{r.org_name}</td><td>{new Date(r.date).toLocaleDateString()}</td>
                                             <td><span className={`status-tag ${r.spf_pass && r.dkim_pass ? 'status-pass' : 'status-fail'}`}>{r.spf_pass && r.dkim_pass ? 'PASS' : 'ALRT'}</span></td>
                                         </tr>

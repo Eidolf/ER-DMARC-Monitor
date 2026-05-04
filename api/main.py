@@ -745,6 +745,38 @@ def get_domain_records(
         for r in results
     ]
 
+@app.get("/reports/records")
+def get_all_records(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    statement = (
+        select(ReportRecord)
+        .join(ReportMetadata)
+        .where(ReportMetadata.is_test == False)
+        .order_by(ReportMetadata.date_end.desc())
+        .limit(2000)
+    )
+    results = session.exec(statement).all()
+    
+    return [
+        {
+            "id": r.id,
+            "source_ip": r.source_ip,
+            "count": r.count,
+            "disposition": r.disposition,
+            "dkim_pass": r.dkim_pass,
+            "spf_pass": r.spf_pass,
+            "dkim_auth_details": json.loads(r.dkim_auth_results or "[]"),
+            "spf_auth_details": json.loads(r.spf_auth_results or "[]"),
+            "report_id": r.report.report_id,
+            "org_name": r.report.org_name,
+            "domain_name": r.report.domain_name,
+            "date": r.report.date_end.isoformat()
+        }
+        for r in results
+    ]
+
 @app.get("/ips/{ip_address}")
 def get_ip_details(
     ip_address: str,
