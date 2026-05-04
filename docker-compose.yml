@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      - POSTGRES_USER=dmarc_admin
-      - POSTGRES_PASSWORD=secure_dmarc_pass
-      - POSTGRES_DB=dmarc_monitor
+      - POSTGRES_USER=${POSTGRES_USER:-dmarc_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_dmarc_pass}
+      - POSTGRES_DB=${POSTGRES_DB:-dmarc_monitor}
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -16,19 +16,19 @@ services:
       - dmarc-backend
 
   api:
-    build: ./api
+    image: ghcr.io/eidolf/er-dmarc-monitor-api:latest
     environment:
-      - DB_DSN=postgresql+psycopg://dmarc_admin:secure_dmarc_pass@postgres:5432/dmarc_monitor
+      - DB_DSN=postgresql+psycopg://${POSTGRES_USER:-dmarc_admin}:${POSTGRES_PASSWORD:-secure_dmarc_pass}@postgres:5432/${POSTGRES_DB:-dmarc_monitor}
       - REDIS_URL=redis://redis:6379/0
-      - JWT_SECRET=change_me_in_production
-      - ADMIN_EMAIL=admin@local
-      - ADMIN_USER=admin
-      - ADMIN_PASSWORD=admin123
-      - ENTRA_CLIENT_ID=
-      - ENTRA_CLIENT_SECRET=
-      - ENTRA_TENANT_ID=common
-      - ENTRA_REDIRECT_URI=http://localhost:13060/api/auth/sso/callback
-      - FRONTEND_URL=http://localhost:13060
+      - JWT_SECRET=${JWT_SECRET:-change_me_in_production}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@local}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - ENTRA_CLIENT_ID=${ENTRA_CLIENT_ID}
+      - ENTRA_CLIENT_SECRET=${ENTRA_CLIENT_SECRET}
+      - ENTRA_TENANT_ID=${ENTRA_TENANT_ID:-common}
+      - ENTRA_REDIRECT_URI=${ENTRA_REDIRECT_URI:-http://localhost:13060/api/auth/sso/callback}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:13060}
     ports:
       - "13061:8080"
     depends_on:
@@ -39,17 +39,17 @@ services:
       - dmarc-frontend
 
   frontend:
-    build: ./frontend
+    image: ghcr.io/eidolf/er-dmarc-monitor-frontend:latest
     ports:
       - "13060:80"
     networks:
       - dmarc-frontend
 
   smtp-ingester:
-    build: ./smtp-ingester
+    image: ghcr.io/eidolf/er-dmarc-monitor-smtp-ingester:latest
     environment:
       - BROKER_URL=redis://redis:6379/0
-      - RECIPIENT_DOMAINS=report.dmarc.domain.com
+      - RECIPIENT_DOMAINS=${RECIPIENT_DOMAINS:-report.dmarc.domain.com}
     ports:
       - "13062:2525"
     volumes:
@@ -58,10 +58,10 @@ services:
       - dmarc-backend
 
   dmarc-parser:
-    build: ./dmarc-parser
+    image: ghcr.io/eidolf/er-dmarc-monitor-dmarc-parser:latest
     environment:
       - BROKER_URL=redis://redis:6379/0
-      - DB_DSN=postgresql+psycopg://dmarc_admin:secure_dmarc_pass@postgres:5432/dmarc_monitor
+      - DB_DSN=postgresql+psycopg://${POSTGRES_USER:-dmarc_admin}:${POSTGRES_PASSWORD:-secure_dmarc_pass}@postgres:5432/${POSTGRES_DB:-dmarc_monitor}
     depends_on:
       - postgres
       - redis
