@@ -179,8 +179,10 @@ function Dashboard() {
     authFetch(`/api/domains/${id}`, { method: 'DELETE' }).then(() => loadData());
   };
 
-  const handleInspect = (domainName: string | null, initialFilter: 'all' | 'spf' | 'dkim' = 'all') => {
-    setInspectDomain(domainName);
+  const handleInspect = (domainName: string | null, initialFilter: 'all' | 'spf' | 'dkim' | 'unauthorized' = 'all') => {
+    // We use a special string "system_global" to represent the global view while still being "truthy"
+    const activeTarget = domainName || "__global__";
+    setInspectDomain(activeTarget);
     setInspectTab('log');
     setDetailedRecords([]);
     setExpandedRecordId(null);
@@ -243,6 +245,7 @@ function Dashboard() {
     
     if (filterType === 'spf') filtered = filtered.filter(r => !r.spf_pass);
     if (filterType === 'dkim') filtered = filtered.filter(r => !r.dkim_pass);
+    if (filterType === 'unauthorized') filtered = filtered.filter(r => !r.spf_pass && !r.dkim_pass);
 
     if (sortConfig.direction) {
       filtered.sort((a, b) => {
@@ -329,7 +332,10 @@ function Dashboard() {
               <h3>DKIM Failures</h3>
               <span className={(stats?.dkim_failures || 0) > 0 ? "kpi-value text-orange" : "kpi-value text-gradient"}>{(stats?.dkim_failures || 0).toLocaleString()}</span>
             </div>
-            <div className="glass-card kpi"><h3>Unauthorized Senders</h3><span className={(stats?.unauthorized_senders || 0) > 0 ? "kpi-value alert" : "kpi-value text-gradient"}>{stats?.unauthorized_senders || 0}</span></div>
+            <div className="glass-card kpi clickable" onClick={() => handleInspect(null, 'unauthorized')} style={{cursor: 'pointer'}}>
+              <h3>Unauthorized Senders</h3>
+              <span className={(stats?.unauthorized_senders || 0) > 0 ? "kpi-value alert" : "kpi-value text-gradient"}>{stats?.unauthorized_senders || 0}</span>
+            </div>
           </section>
           <section className="domains-section">
             <div className="glass-card full-width">
@@ -637,7 +643,7 @@ function Dashboard() {
         <div className="modal-overlay">
           <div className="glass-card modal-content wide-modal" style={{ padding: '2rem' }}>
              <div className="modal-header">
-                <div><h2>{inspectDomain ? `Deep Analysis: ${inspectDomain}` : 'Global Forensic Analysis'}</h2><p>Forensic overview</p></div>
+                <div><h2>{inspectDomain === '__global__' ? 'Global Forensic Analysis' : `Deep Analysis: ${inspectDomain}`}</h2><p>Forensic overview</p></div>
                 <div className="header-actions">
                     <input type="text" placeholder="Search..." className="text-input" style={{ width: '200px', marginRight: '1rem' }} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                     <button onClick={() => setInspectDomain(null)} className="close-btn">&times;</button>
@@ -659,17 +665,20 @@ function Dashboard() {
                         <div className={`summary-item ${filterType === 'dkim' ? 'active' : ''}`} onClick={() => setFilterType('dkim')} style={{cursor: 'pointer'}}>
                           <label>DKIM Fail</label><span className={dkimPassCount < totalInRecords ? 'text-orange' : ''}>{totalInRecords - dkimPassCount}</span>
                         </div>
+                        <div className={`summary-item ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer'}}>
+                          <label>Unauthorized</label><span className="text-red">{detailedRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
+                        </div>
                         <div className="summary-item">
                           <label>Health</label><span>{totalInRecords > 0 ? Math.round(((spfPassCount + dkimPassCount) / (2 * totalInRecords)) * 100) : 0}%</span>
                         </div>
-                    </div>
+                      </div>
                     <div className="scroll-box" style={{marginTop: '1rem', minHeight: '450px'}}>
                         {inspectTab === 'log' ? (
                             <table className="modern-table">
                                 <thead>
                                     <tr>
                                     <th className="sortable-header" onClick={() => handleSort('source_ip')}><div className="th-content">Source IP <SortIcon active={sortConfig.key==='source_ip'} direction={sortConfig.direction} /></div></th>
-                                    {!inspectDomain && <th>Domain</th>}
+                                    {inspectDomain === '__global__' && <th>Domain</th>}
                                     <th className="sortable-header" onClick={() => handleSort('count')}><div className="th-content">Volume <SortIcon active={sortConfig.key==='count'} direction={sortConfig.direction} /></div></th>
                                     <th className="sortable-header" onClick={() => handleSort('org_name')}><div className="th-content">Reporter <SortIcon active={sortConfig.key==='org_name'} direction={sortConfig.direction} /></div></th>
                                     <th className="sortable-header" onClick={() => handleSort('date')}><div className="th-content">Date <SortIcon active={sortConfig.key==='date'} direction={sortConfig.direction} /></div></th>
@@ -690,7 +699,7 @@ function Dashboard() {
                                                 <StatusIcon pass={r.spf_pass} size={14} /> {r.source_ip}
                                               </span>
                                             </td>
-                                            {!inspectDomain && <td style={{fontSize: '0.8rem', opacity: 0.8}}>{(r as any).domain_name}</td>}
+                                            {inspectDomain === '__global__' && <td style={{fontSize: '0.8rem', opacity: 0.8}}>{(r as any).domain_name}</td>}
                                             <td>{r.count}</td><td>{r.org_name}</td><td>{new Date(r.date).toLocaleDateString()}</td>
                                             <td><span className={`status-tag ${r.spf_pass && r.dkim_pass ? 'status-pass' : 'status-fail'}`}>{r.spf_pass && r.dkim_pass ? 'PASS' : 'ALRT'}</span></td>
                                         </tr>
