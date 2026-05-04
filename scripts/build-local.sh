@@ -9,7 +9,7 @@ if ! command -v act &> /dev/null; then
     echo "❌ Error: 'act' is not installed."
     echo "Please install it first: https://nektosact.com/installation/index.html"
     echo "Example (macOS): brew install act"
-    echo "Example (Linux): curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash"
+    echo "Example (Linux): curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash -s -- -b /usr/local/bin"
     exit 1
 fi
 
