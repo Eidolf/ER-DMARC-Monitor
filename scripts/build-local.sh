@@ -27,7 +27,8 @@ cd "$(dirname "$0")/.." || exit 1
 
 # Run act for the workflow_dispatch event to trigger our build pipeline
 # We use -P ubuntu-latest=catthehacker/ubuntu:act-latest to provide a standard runner environment
-act workflow_dispatch -W .github/workflows/docker-build.yml
+act workflow_dispatch -W .github/workflows/docker-build.yml --secret GITHUB_TOKEN=""
+
 
 echo ""
 echo "✅ Local build completed successfully!"
