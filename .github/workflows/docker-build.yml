@@ -51,6 +51,8 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
+        env:
+          GITHUB_TOKEN: ${{ env.ACT == 'true' && '' || secrets.GITHUB_TOKEN }}
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.component.name }}
           tags: |
