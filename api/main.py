@@ -555,22 +555,49 @@ def verify_mfa(req: MFAVerifyRequest, request: Request, session: Session = Depen
     return {"access_token": access_token, "token_type": "bearer", "role": user.role}
 
 @app.get("/auth/sso/login")
-def sso_login(session: Session = Depends(get_session)):
+def sso_login(request: Request, session: Session = Depends(get_session)):
     settings = session.exec(select(SystemSettings)).first()
     if not settings.allow_sso_login:
         raise HTTPException(status_code=403, detail="SSO login is currently disabled")
     
-    url = entra.get_auth_url()
+    # Calculate redirect URI based on current request if not in env
+    redirect_uri = os.getenv("ENTRA_REDIRECT_URI")
+    if not redirect_uri:
+        # Fallback to reconstructing from request
+        host = request.headers.get("host")
+        scheme = request.headers.get("x-forwarded-proto", "http")
+        redirect_uri = f"{scheme}://{host}/api/auth/sso/callback"
+
+    url = entra.get_auth_url(
+        client_id=settings.entra_client_id,
+        client_secret=settings.entra_client_secret,
+        tenant_id=settings.entra_tenant_type or settings.entra_tenant_id,
+        redirect_uri=redirect_uri
+    )
     if not url:
-        raise HTTPException(status_code=501, detail="SSO not configured")
+        raise HTTPException(status_code=501, detail="SSO not configured in Global Settings")
     return RedirectResponse(url)
 
 @app.get("/auth/sso/callback")
 def sso_callback(code: str, request: Request, session: Session = Depends(get_session)):
     client_ip = request.client.host
-    result = entra.acquire_token_by_code(code)
-    if "error" in result:
-        raise HTTPException(status_code=400, detail=result.get("error_description"))
+    settings = session.exec(select(SystemSettings)).first()
+    
+    redirect_uri = os.getenv("ENTRA_REDIRECT_URI")
+    if not redirect_uri:
+        host = request.headers.get("host")
+        scheme = request.headers.get("x-forwarded-proto", "http")
+        redirect_uri = f"{scheme}://{host}/api/auth/sso/callback"
+
+    result = entra.acquire_token_by_code(
+        code,
+        client_id=settings.entra_client_id,
+        client_secret=settings.entra_client_secret,
+        tenant_id=settings.entra_tenant_type or settings.entra_tenant_id,
+        redirect_uri=redirect_uri
+    )
+    if not result or "error" in result:
+        raise HTTPException(status_code=400, detail=result.get("error_description") if result else "Failed to acquire token")
     
     claims = result.get("id_token_claims")
     user_info = entra.validate_id_token(claims)
