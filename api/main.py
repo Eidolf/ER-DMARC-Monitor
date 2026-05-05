@@ -66,10 +66,20 @@ async def db_session_middleware(request: Request, call_next):
 @app.on_event("startup")
 def on_startup():
     import time
+    from sqlalchemy import text
     for _ in range(5):
         try:
             SQLModel.metadata.create_all(engine)
             with Session(engine) as session:
+                # Simple migration for missing columns
+                try:
+                    session.execute(text("ALTER TABLE systemsettings ADD COLUMN IF NOT EXISTS default_sso_role VARCHAR"))
+                    session.execute(text("ALTER TABLE systemsettings ADD COLUMN IF NOT EXISTS public_url VARCHAR"))
+                    session.commit()
+                except Exception as e:
+                    print(f"Migration notice (already exists?): {e}")
+                    session.rollback()
+
                 # Bootstrap admin user if none exists
                 admin_exists = session.exec(select(User).where(User.role == UserRole.ADMIN)).first()
                 if not admin_exists:
