@@ -50,9 +50,13 @@ class SystemSettings(SQLModel, table=True):
     entra_tenant_id: str | None = Field(default=None)
     entra_client_id: str | None = Field(default=None)
     entra_client_secret: str | None = Field(default=None)
-    entra_tenant_type: str = Field(default="common") # "common", "organizations", or specific GUID
+    entra_tenant_type: str = Field(default="single") 
+    default_sso_role: UserRole = Field(default=UserRole.READ_ONLY)
     
-    # Branding (Moved from local storage to DB)
+    # Global Config
+    public_url: str | None = Field(default=None) # e.g. https://dmarc.eidolf.de
+    
+    # Branding
     title_part1: str = Field(default="ER-DMARC")
     title_part2: str = Field(default="-Monitor")
     color_part1: str = Field(default="#e6edf3")

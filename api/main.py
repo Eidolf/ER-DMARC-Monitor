@@ -97,7 +97,8 @@ def on_startup():
                         entra_tenant_id=os.getenv("ENTRA_TENANT_ID"),
                         entra_client_id=os.getenv("ENTRA_CLIENT_ID"),
                         entra_client_secret=os.getenv("ENTRA_CLIENT_SECRET"),
-                        entra_tenant_type=os.getenv("ENTRA_TENANT_TYPE", "common")
+                        entra_tenant_type=os.getenv("ENTRA_TENANT_TYPE", "single"),
+                        public_url=os.getenv("FRONTEND_URL") or os.getenv("ENTRA_REDIRECT_URI", "").split("/api/")[0]
                     )
                     session.add(settings)
                 session.commit()
@@ -560,13 +561,19 @@ def sso_login(request: Request, session: Session = Depends(get_session)):
     if not settings.allow_sso_login:
         raise HTTPException(status_code=403, detail="SSO login is currently disabled")
     
-    # Calculate redirect URI based on current request if not in env
+    # Calculate redirect URI: 1. Settings DB, 2. Env Var, 3. Dynamic from request
     redirect_uri = os.getenv("ENTRA_REDIRECT_URI")
     if not redirect_uri:
-        # Fallback to reconstructing from request
-        host = request.headers.get("host")
-        scheme = request.headers.get("x-forwarded-proto", "http")
-        redirect_uri = f"{scheme}://{host}/api/auth/sso/callback"
+        base = settings.public_url
+        if not base:
+            # Fallback to reconstructing from request
+            host = request.headers.get("host")
+            scheme = request.headers.get("x-forwarded-proto", "http")
+            base = f"{scheme}://{host}"
+        
+        # Ensure no trailing slash in base
+        base = base.rstrip("/")
+        redirect_uri = f"{base}/api/auth/sso/callback"
 
     # For single tenant, we must use the actual tenant ID GUID
     tenant_id = settings.entra_tenant_type
@@ -590,9 +597,14 @@ def sso_callback(code: str, request: Request, session: Session = Depends(get_ses
     
     redirect_uri = os.getenv("ENTRA_REDIRECT_URI")
     if not redirect_uri:
-        host = request.headers.get("host")
-        scheme = request.headers.get("x-forwarded-proto", "http")
-        redirect_uri = f"{scheme}://{host}/api/auth/sso/callback"
+        base = settings.public_url
+        if not base:
+            host = request.headers.get("host")
+            scheme = request.headers.get("x-forwarded-proto", "http")
+            base = f"{scheme}://{host}"
+        
+        base = base.rstrip("/")
+        redirect_uri = f"{base}/api/auth/sso/callback"
 
     tenant_id = settings.entra_tenant_type
     if tenant_id == "single":
@@ -624,7 +636,7 @@ def sso_callback(code: str, request: Request, session: Session = Depends(get_ses
             user = User(
                 email=user_info["email"],
                 username=user_info["email"],
-                role=UserRole.READ_ONLY, # Default role
+                role=settings.default_sso_role or UserRole.READ_ONLY,
                 is_active=True,
                 sso_id=user_info["sso_id"],
                 sso_provider="entra"
@@ -641,8 +653,8 @@ def sso_callback(code: str, request: Request, session: Session = Depends(get_ses
     
     access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
     # Redirect back to frontend with token
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:13060")
-    return RedirectResponse(f"{frontend_url}/?token={access_token}&role={user.role}")
+    frontend_url = settings.public_url or os.getenv("FRONTEND_URL", "http://localhost:13060")
+    return RedirectResponse(f"{frontend_url.rstrip('/')}/?token={access_token}&role={user.role}")
 
 @app.get("/auth/me")
 def get_me(user: User = Depends(get_current_user)):

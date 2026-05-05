@@ -23,6 +23,8 @@ interface GlobalSettings {
   color_part1: string;
   color_part2: string;
   logo_url: string | null;
+  public_url: string;
+  default_sso_role: string;
   smtp_test_mode_enabled: boolean;
   allowed_test_recipients: string;
   test_message_retention_days: number;
@@ -219,6 +221,18 @@ const Settings: React.FC = () => {
     const res = await fetch(`/api/admin/users/${user_id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) fetchUsers();
+  };
+
+  const handleUpdateUserRole = async (user_id: number, newRole: string) => {
+    const res = await fetch(`/api/admin/users/${user_id}`, {
+      method: 'PATCH',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ role: newRole })
     });
     if (res.ok) fetchUsers();
   };
@@ -452,7 +466,16 @@ const Settings: React.FC = () => {
 
         {activeTab === 'auth' && settings && (
           <div className="settings-section">
-            <h3>Authentication Settings</h3>
+            <h3>Global Application Settings</h3>
+            <div className="settings-subsection">
+              <h4>Base Configuration</h4>
+              <div className="form-group">
+                <label>Public Application URL</label>
+                <input type="text" value={settings.public_url || ''} placeholder="https://dmarc.eidolf.de" onChange={e => setSettings({...settings, public_url: e.target.value})} className="text-input" />
+                <p className="hint-text">Used for SSO Redirect URIs and internal links. No trailing slash.</p>
+              </div>
+            </div>
+            
             <div className="settings-grid">
               <div className="settings-subsection">
                 <h4>Login Methods</h4>
@@ -484,13 +507,15 @@ const Settings: React.FC = () => {
                 <label>Client Secret</label>
                 <input type="password" value={settings.entra_client_secret || ''} onChange={e => setSettings({...settings, entra_client_secret: e.target.value})} className="text-input" />
               </div>
-              <div className="form-group">
-                <label>Tenant Type</label>
-                <select value={settings.entra_tenant_type} onChange={e => setSettings({...settings, entra_tenant_type: e.target.value})} className="text-input">
-                  <option value="single">Single Tenant (Specific Organization)</option>
-                  <option value="organizations">Multiple Entra ID Tenants (Work/School)</option>
-                  <option value="common">Any Entra ID Tenant + Personal Accounts</option>
                   <option value="consumers">Personal Microsoft Accounts Only</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Default Role for New SSO Users</label>
+                <select value={settings.default_sso_role} onChange={e => setSettings({...settings, default_sso_role: e.target.value})} className="text-input">
+                  <option value="Admin">Admin</option>
+                  <option value="Analyst">Analyst</option>
+                  <option value="Read-only">Read-only</option>
                 </select>
               </div>
             </div>
@@ -614,7 +639,18 @@ const Settings: React.FC = () => {
                         </td>
                         <td>{u.email}</td>
                         <td>{u.username}</td>
-                        <td>{u.role}</td>
+                        <td>
+                          <select 
+                            value={u.role} 
+                            onChange={(e) => handleUpdateUserRole(u.id, e.target.value)}
+                            className="text-input small-input"
+                            style={{padding: '2px 5px', fontSize: '0.8rem'}}
+                          >
+                            <option value="Admin">Admin</option>
+                            <option value="Analyst">Analyst</option>
+                            <option value="Read-only">Read-only</option>
+                          </select>
+                        </td>
                         <td><span className={`status-tag ${u.is_active ? 'status-pass' : 'status-fail'}`}>{u.is_active ? 'Active' : 'Disabled'}</span></td>
                         <td>{u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}</td>
                         <td>
