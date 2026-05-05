@@ -91,8 +91,8 @@ def on_startup():
                         session.add(legacy_admin)
                 
                 # Bootstrap system settings
-                settings_exist = session.exec(select(SystemSettings)).first()
-                if not settings_exist:
+                settings = session.exec(select(SystemSettings)).first()
+                if not settings:
                     settings = SystemSettings(
                         entra_tenant_id=os.getenv("ENTRA_TENANT_ID"),
                         entra_client_id=os.getenv("ENTRA_CLIENT_ID"),
@@ -101,6 +101,11 @@ def on_startup():
                         public_url=os.getenv("FRONTEND_URL") or os.getenv("ENTRA_REDIRECT_URI", "").split("/api/")[0]
                     )
                     session.add(settings)
+                else:
+                    # Update missing values from env if possible
+                    if not settings.public_url:
+                        settings.public_url = os.getenv("FRONTEND_URL") or os.getenv("ENTRA_REDIRECT_URI", "").split("/api/")[0]
+                        session.add(settings)
                 session.commit()
             break
         except Exception:
@@ -567,7 +572,8 @@ def sso_login(request: Request, session: Session = Depends(get_session)):
         base = settings.public_url
         if not base:
             # Fallback to reconstructing from request
-            host = request.headers.get("host")
+            # Check X-Forwarded-Host first (standard for reverse proxies)
+            host = request.headers.get("x-forwarded-host") or request.headers.get("host")
             scheme = request.headers.get("x-forwarded-proto", "http")
             base = f"{scheme}://{host}"
         
@@ -599,7 +605,7 @@ def sso_callback(code: str, request: Request, session: Session = Depends(get_ses
     if not redirect_uri:
         base = settings.public_url
         if not base:
-            host = request.headers.get("host")
+            host = request.headers.get("x-forwarded-host") or request.headers.get("host")
             scheme = request.headers.get("x-forwarded-proto", "http")
             base = f"{scheme}://{host}"
         
