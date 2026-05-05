@@ -16,6 +16,9 @@ services:
       - dmarc-backend
 
   api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
     image: ghcr.io/eidolf/er-dmarc-monitor-api:latest
     environment:
       - DB_DSN=postgresql+psycopg://${POSTGRES_USER:-dmarc_admin}:${POSTGRES_PASSWORD:-secure_dmarc_pass}@postgres:5432/${POSTGRES_DB:-dmarc_monitor}
@@ -39,6 +42,9 @@ services:
       - dmarc-frontend
 
   frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     image: ghcr.io/eidolf/er-dmarc-monitor-frontend:latest
     ports:
       - "13060:80"
@@ -46,6 +52,9 @@ services:
       - dmarc-frontend
 
   smtp-ingester:
+    build:
+      context: ./smtp-ingester
+      dockerfile: Dockerfile
     image: ghcr.io/eidolf/er-dmarc-monitor-smtp-ingester:latest
     environment:
       - BROKER_URL=redis://redis:6379/0
@@ -58,6 +67,9 @@ services:
       - dmarc-backend
 
   dmarc-parser:
+    build:
+      context: ./dmarc-parser
+      dockerfile: Dockerfile
     image: ghcr.io/eidolf/er-dmarc-monitor-dmarc-parser:latest
     environment:
       - BROKER_URL=redis://redis:6379/0
