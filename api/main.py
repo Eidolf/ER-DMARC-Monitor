@@ -568,10 +568,15 @@ def sso_login(request: Request, session: Session = Depends(get_session)):
         scheme = request.headers.get("x-forwarded-proto", "http")
         redirect_uri = f"{scheme}://{host}/api/auth/sso/callback"
 
+    # For single tenant, we must use the actual tenant ID GUID
+    tenant_id = settings.entra_tenant_type
+    if tenant_id == "single":
+        tenant_id = settings.entra_tenant_id
+
     url = entra.get_auth_url(
         client_id=settings.entra_client_id,
         client_secret=settings.entra_client_secret,
-        tenant_id=settings.entra_tenant_type or settings.entra_tenant_id,
+        tenant_id=tenant_id,
         redirect_uri=redirect_uri
     )
     if not url:
@@ -589,11 +594,15 @@ def sso_callback(code: str, request: Request, session: Session = Depends(get_ses
         scheme = request.headers.get("x-forwarded-proto", "http")
         redirect_uri = f"{scheme}://{host}/api/auth/sso/callback"
 
+    tenant_id = settings.entra_tenant_type
+    if tenant_id == "single":
+        tenant_id = settings.entra_tenant_id
+
     result = entra.acquire_token_by_code(
         code,
         client_id=settings.entra_client_id,
         client_secret=settings.entra_client_secret,
-        tenant_id=settings.entra_tenant_type or settings.entra_tenant_id,
+        tenant_id=tenant_id,
         redirect_uri=redirect_uri
     )
     if not result or "error" in result:

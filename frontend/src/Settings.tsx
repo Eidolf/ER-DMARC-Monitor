@@ -487,9 +487,10 @@ const Settings: React.FC = () => {
               <div className="form-group">
                 <label>Tenant Type</label>
                 <select value={settings.entra_tenant_type} onChange={e => setSettings({...settings, entra_tenant_type: e.target.value})} className="text-input">
-                  <option value="common">Multi-tenant (Common)</option>
-                  <option value="organizations">All Organizations</option>
-                  <option value="consumers">Personal Accounts Only</option>
+                  <option value="single">Single Tenant (Specific Organization)</option>
+                  <option value="organizations">Multiple Entra ID Tenants (Work/School)</option>
+                  <option value="common">Any Entra ID Tenant + Personal Accounts</option>
+                  <option value="consumers">Personal Microsoft Accounts Only</option>
                 </select>
               </div>
             </div>
