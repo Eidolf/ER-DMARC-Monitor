@@ -48,6 +48,16 @@ def sync_smtp_config(session: Session):
         recipients = session.exec(select(SMTPRecipient).where(SMTPRecipient.listening_domain_id == d.id, SMTPRecipient.is_active == True)).all()
         for rec in recipients:
             r_client.sadd(f"smtp:allowed:recipients:{d.domain_name.lower()}", rec.local_part.lower())
+            
+    # Add test recipients
+    settings = session.exec(select(SystemSettings)).first()
+    if settings and settings.allowed_test_recipients:
+        for addr in settings.allowed_test_recipients.split(","):
+            addr = addr.strip()
+            if "@" in addr:
+                local_part, domain = addr.split("@", 1)
+                r_client.sadd("smtp:allowed:domains", domain.lower())
+                r_client.sadd(f"smtp:allowed:recipients:{domain.lower()}", local_part.lower())
 
 DB_DSN = os.getenv("DB_DSN", "sqlite:///database.db")
 engine = create_engine(DB_DSN)
@@ -117,6 +127,7 @@ def on_startup():
                         settings.public_url = os.getenv("FRONTEND_URL") or os.getenv("ENTRA_REDIRECT_URI", "").split("/api/")[0]
                         session.add(settings)
                 session.commit()
+                sync_smtp_config(session)
             break
         except Exception:
             time.sleep(2)
@@ -287,6 +298,7 @@ def update_global_settings(
     session.add(db_settings)
     session.commit()
     session.refresh(db_settings)
+    sync_smtp_config(session)
     return db_settings
 
 @app.get("/settings/branding")
