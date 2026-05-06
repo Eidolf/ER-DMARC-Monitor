@@ -662,8 +662,11 @@ def sso_callback(code: str, request: Request, session: Session = Depends(get_ses
     user.last_login = datetime.utcnow()
     user.last_login_ip = client_ip
     user.last_login_method = "entra"
-    log_audit(session, user.id, client_ip, "entra", "success")
+    
     session.add(user)
+    session.flush() # Ensure user.id is populated for log_audit
+    
+    log_audit(session, user.id, client_ip, "entra", "success")
     session.commit()
     session.refresh(user)
     
