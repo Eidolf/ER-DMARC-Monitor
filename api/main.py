@@ -659,6 +659,7 @@ def sso_callback(code: str, request: Request, session: Session = Depends(get_ses
         if user:
             user.sso_id = user_info["sso_id"]
             user.sso_provider = "entra"
+            user.auth_source = AuthSource.ENTRA_ID
         else:
             # Create new user via SSO
             user = User(
@@ -667,7 +668,8 @@ def sso_callback(code: str, request: Request, session: Session = Depends(get_ses
                 role=settings.default_sso_role or UserRole.READ_ONLY,
                 is_active=True,
                 sso_id=user_info["sso_id"],
-                sso_provider="entra"
+                sso_provider="entra",
+                auth_source=AuthSource.ENTRA_ID
             )
             session.add(user)
     

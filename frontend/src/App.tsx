@@ -82,6 +82,7 @@ function Dashboard() {
   const [detailedRecords, setDetailedRecords] = useState<DetailedRecord[]>([]);
   const [expandedRecordId, setExpandedRecordId] = useState<number | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' | null }>({ key: 'date', direction: 'desc' });
@@ -159,6 +160,7 @@ function Dashboard() {
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
     fetch('/api/settings/branding').then(res => res.json()).then(json => setSettings(json)).catch(err => console.error(err));
+    authFetch('/api/auth/me').then(res => res.json()).then(json => setCurrentUser(json)).catch(err => console.error(err));
   };
 
   useEffect(() => { loadData(); }, []);
@@ -304,10 +306,13 @@ function Dashboard() {
         </nav>
         <div className="user-section">
           <div className="profile-dropdown-wrapper">
-            <div className="user-profile" onClick={() => setProfileOpen(!profileOpen)} title={`Role: ${role}`}>{role?.substring(0, 2).toUpperCase()}</div>
+            <div className="user-profile" onClick={() => setProfileOpen(!profileOpen)} title={`Role: ${role}`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </div>
             {profileOpen && (
               <div className="profile-dropdown glass-card">
                 <div className="dropdown-info">
+                  {currentUser && <p className="user-name" style={{fontWeight: 'bold', marginBottom: '5px'}}>{currentUser.username}</p>}
                   <p className="role-badge">{role}</p>
                 </div>
                 <button onClick={() => { setView('settings'); setProfileOpen(false); }}>Settings & Profile</button>
@@ -554,7 +559,12 @@ function Dashboard() {
               </div>
               <div className="docs-item">
                 <h4>External Validation</h4>
-                <p>Use the provided scripts in <code>/scripts/smtp_tests/</code> to test from external environments (Python, PowerShell, Bash).</p>
+                <p>Use the provided scripts to test from external environments. Download the scripts here:</p>
+                <ul style={{marginTop: '0.5rem', listStyleType: 'disc', paddingLeft: '1.5rem'}}>
+                  <li><a href="/scripts/test_dmarc.py" download style={{color: 'var(--accent-blue)', textDecoration: 'none'}}>test_dmarc.py</a> (Python)</li>
+                  <li><a href="/scripts/test_dmarc.ps1" download style={{color: 'var(--accent-blue)', textDecoration: 'none'}}>test_dmarc.ps1</a> (PowerShell)</li>
+                  <li><a href="/scripts/test_dmarc.sh" download style={{color: 'var(--accent-blue)', textDecoration: 'none'}}>test_dmarc.sh</a> (Bash)</li>
+                </ul>
               </div>
             </section>
           </div>
