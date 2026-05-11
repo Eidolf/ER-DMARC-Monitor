@@ -4,6 +4,28 @@ import { AuthProvider, useAuth } from './AuthContext';
 import Login from './Login';
 import SettingsView from './Settings';
 
+const formatDate = (dateInput: string | number | Date) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return String(dateInput);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}.${month}.${year}`;
+};
+
+const formatDateTime = (dateInput: string | number | Date) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return String(dateInput);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${day}.${month}.${year} ${hours}:${minutes}`;
+};
+
 interface AppSettings {
   title_part1: string;
   title_part2: string;
@@ -59,7 +81,13 @@ const StatusIcon = ({ pass, size = 16 }: { pass: boolean; size?: number }) => {
 interface Domain {
   id: number;
   name: string;
-  dmarc_policy: string;
+  is_active: boolean;
+  dmarc_policy: string | null;
+  spf_status: string;
+  dkim_status: string;
+  dmarc_status: string;
+  spf_fails: number;
+  dkim_fails: number;
   dns_summary?: {
     spf: string;
     dkim: string;
@@ -745,7 +773,7 @@ function Dashboard() {
                                               </span>
                                             </td>
                                             {inspectDomain === '__global__' && <td style={{fontSize: '0.8rem', opacity: 0.8}}>{(r as any).domain_name}</td>}
-                                            <td>{r.count}</td><td>{r.org_name}</td><td>{new Date(r.date).toLocaleDateString()}</td>
+                                            <td>{r.count}</td><td>{r.org_name}</td><td>{formatDate(r.date)}</td>
                                             <td><span className={`status-tag ${r.spf_pass && r.dkim_pass ? 'status-pass' : 'status-fail'}`}>{r.spf_pass && r.dkim_pass ? 'PASS' : 'ALRT'}</span></td>
                                         </tr>
                                         {expandedRecordId === r.id && (

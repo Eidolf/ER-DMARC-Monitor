@@ -1,6 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 
+const formatDate = (dateInput: string | number | Date) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return String(dateInput);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}.${month}.${year}`;
+};
+
+const formatDateTime = (dateInput: string | number | Date) => {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return String(dateInput);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${day}.${month}.${year} ${hours}:${minutes}`;
+};
+
 const HomeIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{marginRight: '6px', verticalAlign: 'middle'}}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
 );
@@ -571,7 +593,7 @@ const Settings: React.FC = () => {
                 <tbody>
                   {auditLogs.map(log => (
                     <tr key={log.id}>
-                      <td>{new Date(log.timestamp).toLocaleString()}</td>
+                      <td>{formatDateTime(log.timestamp)}</td>
                       <td>{log.email}</td>
                       <td>{log.method}</td>
                       <td><span className={`status-tag ${log.status === 'success' ? 'status-pass' : 'status-fail'}`}>{log.status}</span></td>
@@ -658,7 +680,7 @@ const Settings: React.FC = () => {
                           </select>
                         </td>
                         <td><span className={`status-tag ${u.is_active ? 'status-pass' : 'status-fail'}`}>{u.is_active ? 'Active' : 'Disabled'}</span></td>
-                        <td>{u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}</td>
+                        <td>{u.last_login ? formatDateTime(u.last_login) : 'Never'}</td>
                         <td>
                           <div style={{display: 'flex', gap: '0.5rem'}}>
                             <button onClick={() => handleToggleUserStatus(u.id, u.is_active)} className="action-btn small-btn">
@@ -732,7 +754,7 @@ const Settings: React.FC = () => {
                   <tbody>
                     {testResults.map(res => (
                       <tr key={res.id}>
-                        <td>{new Date(res.date_end).toLocaleString()}</td>
+                        <td>{formatDateTime(res.date_end)}</td>
                         <td>{res.org_name}</td>
                         <td>{res.domain_name}</td>
                         <td><code>{res.report_id}</code></td>
