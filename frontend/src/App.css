@@ -393,8 +393,10 @@ nav {
   backdrop-filter: blur(12px);
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   z-index: 1000;
+  overflow-y: auto;
+  padding: 2rem 1rem;
 }
 .secondary-modal {
   z-index: 1100;
@@ -404,6 +406,7 @@ nav {
 .modal-content {
   width: 100%;
   max-width: 500px;
+  margin: auto;
   background: rgba(10, 12, 16, 0.96) !important; /* High opacity for better readability */
   backdrop-filter: blur(40px) saturate(150%) !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
