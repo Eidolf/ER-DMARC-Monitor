@@ -159,6 +159,48 @@ nav {
   width: 100%;
 }
 
+.filter-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  padding: 1rem 1.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  border: 1px solid var(--border-glass);
+}
+
+.date-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.date-input-group label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.date-picker {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-glass);
+  border-radius: 6px;
+  color: white;
+  padding: 0.45rem 0.8rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.date-picker:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
 .hero-section {
   margin-bottom: 2.5rem;
 }

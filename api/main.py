@@ -6,8 +6,8 @@ import traceback
 import sys
 import json
 import uuid
-from datetime import datetime
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Request, status
+from datetime import datetime, timedelta
+from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Request, status, Query
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlmodel import Session, create_engine, SQLModel, select, func
 from pydantic import BaseModel
@@ -746,9 +746,18 @@ def get_domains(
         if not spf or not dkim or not dmarc:
             background_tasks.add_task(refresh_domain_dns, d.name)
             
-        # Failure stats
-        spf_fails = session.exec(select(func.sum(ReportRecord.count)).join(ReportMetadata).where(ReportMetadata.domain_name == d.name, ReportRecord.spf_pass == False)).one() or 0
-        dkim_fails = session.exec(select(func.sum(ReportRecord.count)).join(ReportMetadata).where(ReportMetadata.domain_name == d.name, ReportRecord.dkim_pass == False)).one() or 0
+        # Failure stats (last 30 days)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        spf_fails = session.exec(select(func.sum(ReportRecord.count)).join(ReportMetadata).where(
+            ReportMetadata.domain_name == d.name, 
+            ReportRecord.spf_pass == False,
+            ReportMetadata.date_end >= thirty_days_ago
+        )).one() or 0
+        dkim_fails = session.exec(select(func.sum(ReportRecord.count)).join(ReportMetadata).where(
+            ReportMetadata.domain_name == d.name, 
+            ReportRecord.dkim_pass == False,
+            ReportMetadata.date_end >= thirty_days_ago
+        )).one() or 0
             
         results.append({
             "id": d.id,
@@ -796,6 +805,8 @@ def delete_domain(
 @app.get("/domains/{domain_name}/records")
 def get_domain_records(
     domain_name: str, 
+    start_date: str = None,
+    end_date: str = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -805,8 +816,14 @@ def get_domain_records(
         .join(ReportMetadata)
         .where(func.lower(ReportMetadata.domain_name) == domain_name.lower())
         .where(ReportMetadata.is_test == False)
-        .order_by(ReportMetadata.date_end.desc())
     )
+    
+    if start_date:
+        statement = statement.where(ReportMetadata.date_end >= datetime.fromisoformat(start_date))
+    if end_date:
+        statement = statement.where(ReportMetadata.date_end <= datetime.fromisoformat(end_date))
+        
+    statement = statement.order_by(ReportMetadata.date_end.desc())
     results = session.exec(statement).all()
     
     return [
@@ -828,6 +845,8 @@ def get_domain_records(
 
 @app.get("/reports/records")
 def get_all_records(
+    start_date: str = None,
+    end_date: str = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -835,9 +854,14 @@ def get_all_records(
         select(ReportRecord)
         .join(ReportMetadata)
         .where(ReportMetadata.is_test == False)
-        .order_by(ReportMetadata.date_end.desc())
-        .limit(2000)
     )
+    
+    if start_date:
+        statement = statement.where(ReportMetadata.date_end >= datetime.fromisoformat(start_date))
+    if end_date:
+        statement = statement.where(ReportMetadata.date_end <= datetime.fromisoformat(end_date))
+        
+    statement = statement.order_by(ReportMetadata.date_end.desc()).limit(2000)
     results = session.exec(statement).all()
     
     return [
@@ -868,10 +892,23 @@ def get_ip_details(
 
 @app.get("/reports/stats")
 def get_report_stats(
+    start_date: str = None,
+    end_date: str = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
     statement = select(ReportRecord).join(ReportMetadata).where(ReportMetadata.is_test == False)
+    
+    if start_date:
+        statement = statement.where(ReportMetadata.date_end >= datetime.fromisoformat(start_date))
+    else:
+        # Default to last 30 days
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        statement = statement.where(ReportMetadata.date_end >= thirty_days_ago)
+        
+    if end_date:
+        statement = statement.where(ReportMetadata.date_end <= datetime.fromisoformat(end_date))
+        
     records = session.exec(statement).all()
     total_analyzed = sum(r.count for r in records)
     spf_failures = sum(r.count for r in records if not r.spf_pass)

@@ -98,6 +98,16 @@ function Dashboard() {
     logo_url: '/favicon.png'
   });
 
+  const [dateFilter, setDateFilter] = useState<{ start: string, end: string }>(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+  });
+
   const [dnsModal, setDnsModal] = useState<{ domainId: number, domainName: string, type: 'spf' | 'dkim' | 'dmarc' } | null>(null);
   const [dnsDetails, setDnsDetails] = useState<any>(null);
   const [dnsLoading, setDnsLoading] = useState(false);
@@ -154,7 +164,7 @@ function Dashboard() {
 
   const loadData = () => {
     authFetch('/api/domains').then(res => res.json()).then(json => setData(Array.isArray(json) ? json : [])).catch(err => console.error(err));
-    authFetch('/api/reports/stats')
+    authFetch(`/api/reports/stats?start_date=${dateFilter.start}&end_date=${dateFilter.end}`)
       .then(res => res.ok ? res.json() : null)
       .then(json => { if (json) setStats(json); })
       .catch(err => console.error(err))
@@ -163,7 +173,7 @@ function Dashboard() {
     authFetch('/api/auth/me').then(res => res.json()).then(json => setCurrentUser(json)).catch(err => console.error(err));
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [dateFilter]);
 
   // ... handleAddDomain, handleDeleteDomain, handleInspect, handleFileUpload ...
 
@@ -191,7 +201,9 @@ function Dashboard() {
     setSearchQuery('');
     setFilterType(initialFilter);
     setSortConfig({ key: 'date', direction: 'desc' });
-    const url = domainName ? `/api/domains/${domainName}/records` : '/api/reports/records';
+    const url = domainName 
+      ? `/api/domains/${domainName}/records?start_date=${dateFilter.start}&end_date=${dateFilter.end}` 
+      : `/api/reports/records?start_date=${dateFilter.start}&end_date=${dateFilter.end}`;
     authFetch(url)
       .then(res => res.json())
       .then(json => { if (Array.isArray(json)) setDetailedRecords(json); })
@@ -327,6 +339,29 @@ function Dashboard() {
       {view === 'overview' && (
         <main className="dashboard-content">
           <div className="hero-section"><h2>Security Posture</h2><p>DMARC monitoring console</p></div>
+          
+          <div className="filter-bar">
+            <div className="date-input-group">
+              <label>From</label>
+              <input 
+                type="date" 
+                className="date-picker" 
+                value={dateFilter.start} 
+                onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} 
+              />
+            </div>
+            <div className="date-input-group">
+              <label>To</label>
+              <input 
+                type="date" 
+                className="date-picker" 
+                value={dateFilter.end} 
+                onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} 
+              />
+            </div>
+            <button className="action-btn" onClick={loadData}>Refresh</button>
+          </div>
+
           <section className="kpi-grid">
             <div className="glass-card kpi"><h3>Total Analyzed</h3><span className="kpi-value text-gradient">{(stats?.total_analyzed || 0).toLocaleString()}</span></div>
             <div className="glass-card kpi clickable" onClick={() => handleInspect(null, 'spf')} style={{cursor: 'pointer'}}>
