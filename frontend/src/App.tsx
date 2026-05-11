@@ -203,6 +203,16 @@ function Dashboard() {
     authFetch('/api/auth/me').then(res => res.json()).then(json => setCurrentUser(json)).catch(err => console.error(err));
   };
 
+  const handleResetFilter = () => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    setDateFilter({
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    });
+  };
+
   useEffect(() => { loadData(); }, [dateFilter]);
 
   // ... handleAddDomain, handleDeleteDomain, handleInspect, handleFileUpload ...
@@ -395,7 +405,7 @@ function Dashboard() {
                 />
               </div>
             </div>
-            <button className="action-btn" onClick={loadData}>Refresh</button>
+            <button className="action-btn" onClick={handleResetFilter} style={{background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', border: '1px solid var(--border-glass)'}}>Reset Filter</button>
           </div>
 
           <section className="kpi-grid">
