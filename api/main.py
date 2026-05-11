@@ -656,22 +656,20 @@ def sso_callback(code: str, request: Request, session: Session = Depends(get_ses
     if not user:
         # Fallback to email if OID doesn't match yet
         user = session.exec(select(User).where(User.email == user_info["email"])).first()
-        if user:
-            user.sso_id = user_info["sso_id"]
-            user.sso_provider = "entra"
-            user.auth_source = AuthSource.ENTRA_ID
-        else:
+        if not user:
             # Create new user via SSO
             user = User(
                 email=user_info["email"],
                 username=user_info["email"],
                 role=settings.default_sso_role or UserRole.READ_ONLY,
-                is_active=True,
-                sso_id=user_info["sso_id"],
-                sso_provider="entra",
-                auth_source=AuthSource.ENTRA_ID
+                is_active=True
             )
             session.add(user)
+    
+    # Always ensure SSO info is updated
+    user.sso_id = user_info["sso_id"]
+    user.sso_provider = "entra"
+    user.auth_source = AuthSource.ENTRA_ID
     
     user.last_login = datetime.utcnow()
     user.last_login_ip = client_ip
