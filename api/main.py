@@ -733,6 +733,8 @@ def refresh_domain_dns(domain_name):
 @app.get("/domains")
 def get_domains(
     background_tasks: BackgroundTasks,
+    start_date: str = None,
+    end_date: str = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -746,17 +748,28 @@ def get_domains(
         if not spf or not dkim or not dmarc:
             background_tasks.add_task(refresh_domain_dns, d.name)
             
-        # Failure stats (last 30 days)
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        # Failure stats (filtered or last 30 days)
+        if start_date:
+            start_dt = datetime.fromisoformat(start_date)
+        else:
+            start_dt = datetime.utcnow() - timedelta(days=30)
+            
+        if end_date:
+            end_dt = datetime.fromisoformat(end_date)
+        else:
+            end_dt = datetime.utcnow()
+
         spf_fails = session.exec(select(func.sum(ReportRecord.count)).join(ReportMetadata).where(
             ReportMetadata.domain_name == d.name, 
             ReportRecord.spf_pass == False,
-            ReportMetadata.date_end >= thirty_days_ago
+            ReportMetadata.date_end >= start_dt,
+            ReportMetadata.date_end <= end_dt
         )).one() or 0
         dkim_fails = session.exec(select(func.sum(ReportRecord.count)).join(ReportMetadata).where(
             ReportMetadata.domain_name == d.name, 
             ReportRecord.dkim_pass == False,
-            ReportMetadata.date_end >= thirty_days_ago
+            ReportMetadata.date_end >= start_dt,
+            ReportMetadata.date_end <= end_dt
         )).one() or 0
             
         results.append({
