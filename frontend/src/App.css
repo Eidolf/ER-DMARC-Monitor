@@ -201,6 +201,54 @@ nav {
   border-color: var(--accent-blue);
 }
 
+.date-picker::-webkit-calendar-picker-indicator {
+  filter: invert(0.8) grayscale(100%) brightness(1.2);
+  cursor: pointer;
+  opacity: 0.8;
+  position: absolute;
+  right: 8px;
+}
+
+.date-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-glass);
+  border-radius: 6px;
+  overflow: hidden;
+  width: 150px;
+}
+
+.date-display {
+  position: absolute;
+  left: 0.8rem;
+  pointer-events: none;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  z-index: 1;
+}
+
+.date-picker {
+  background: transparent !important;
+  border: none !important;
+  color: transparent !important;
+  width: 100%;
+  padding: 0.45rem 0.8rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  z-index: 2;
+  cursor: pointer;
+}
+
+.date-picker:focus {
+  outline: none;
+}
+
+.date-input-wrapper:focus-within {
+  border-color: var(--accent-blue);
+}
+
 .hero-section {
   margin-bottom: 2.5rem;
 }

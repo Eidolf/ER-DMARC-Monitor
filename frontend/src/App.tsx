@@ -8,9 +8,11 @@ const formatDate = (dateInput: string | number | Date) => {
   if (!dateInput) return '';
   const d = new Date(dateInput);
   if (isNaN(d.getTime())) return String(dateInput);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
+  
+  // Use UTC to avoid timezone shifts for date-only strings from the backend
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
   return `${day}.${month}.${year}`;
 };
 
@@ -191,7 +193,7 @@ function Dashboard() {
   };
 
   const loadData = () => {
-    authFetch('/api/domains').then(res => res.json()).then(json => setData(Array.isArray(json) ? json : [])).catch(err => console.error(err));
+    authFetch(`/api/domains?start_date=${dateFilter.start}&end_date=${dateFilter.end}`).then(res => res.json()).then(json => setData(Array.isArray(json) ? json : [])).catch(err => console.error(err));
     authFetch(`/api/reports/stats?start_date=${dateFilter.start}&end_date=${dateFilter.end}`)
       .then(res => res.ok ? res.json() : null)
       .then(json => { if (json) setStats(json); })
@@ -371,21 +373,27 @@ function Dashboard() {
           <div className="filter-bar">
             <div className="date-input-group">
               <label>From</label>
-              <input 
-                type="date" 
-                className="date-picker" 
-                value={dateFilter.start} 
-                onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} 
-              />
+              <div className="date-input-wrapper">
+                <div className="date-display">{formatDate(dateFilter.start)}</div>
+                <input 
+                  type="date" 
+                  className="date-picker" 
+                  value={dateFilter.start} 
+                  onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} 
+                />
+              </div>
             </div>
             <div className="date-input-group">
               <label>To</label>
-              <input 
-                type="date" 
-                className="date-picker" 
-                value={dateFilter.end} 
-                onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} 
-              />
+              <div className="date-input-wrapper">
+                <div className="date-display">{formatDate(dateFilter.end)}</div>
+                <input 
+                  type="date" 
+                  className="date-picker" 
+                  value={dateFilter.end} 
+                  onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} 
+                />
+              </div>
             </div>
             <button className="action-btn" onClick={loadData}>Refresh</button>
           </div>
@@ -409,7 +417,7 @@ function Dashboard() {
             <div className="glass-card full-width">
               <div className="card-header"><h3>Monitored Domains</h3></div>
               <table className="modern-table">
-                <thead><tr><th>Domain Name</th><th>Failures (30d)</th><th>SPF Record</th><th>DMARC Policy</th><th>DKIM Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Domain Name</th><th>Failures (Filtered)</th><th>SPF Record</th><th>DMARC Policy</th><th>DKIM Status</th><th>Actions</th></tr></thead>
                 <tbody>{data.map((domain) => (
                     <tr key={domain.id}>
                       <td>{domain.name}</td>
@@ -741,6 +749,7 @@ function Dashboard() {
                         <div className={`summary-item ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer'}}>
                           <label>Unauthorized</label><span className="text-red">{detailedRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
                         </div>
+                        <div className="summary-item"><label>Period</label><span>{formatDate(dateFilter.start)} to {formatDate(dateFilter.end)}</span></div>
                         <div className="summary-item">
                           <label>Health</label><span>{totalInRecords > 0 ? Math.round(((spfPassCount + dkimPassCount) / (2 * totalInRecords)) * 100) : 0}%</span>
                         </div>
