@@ -1126,3 +1126,63 @@ def get_test_results(
     results = session.exec(select(ReportMetadata).where(ReportMetadata.is_test == True).order_by(ReportMetadata.date_end.desc()).limit(20)).all()
     return results
 
+@app.get("/admin/smtp/scripts/{script_type}")
+def get_configured_test_script(
+    script_type: str,
+    domain: str = None,
+    recipient: str = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.ANALYST]))
+):
+    import os
+    
+    settings = session.exec(select(SystemSettings)).first()
+    
+    # Fallback to defaults if not provided
+    if not domain:
+        # Get first managed domain
+        first_domain = session.exec(select(Domain)).first()
+        domain = first_domain.name if first_domain else "example.com"
+        
+    if not recipient:
+        allowed = (settings.allowed_test_recipients or "").split(",")
+        recipient = allowed[0].strip() if allowed and allowed[0].strip() else f"report@dmarc.{domain}"
+
+    # Construct the path to the script template
+    ext_map = {"python": "py", "powershell": "ps1", "bash": "sh"}
+    ext = ext_map.get(script_type.lower())
+    if not ext:
+        raise HTTPException(status_code=400, detail="Invalid script type. Use 'python', 'powershell', or 'bash'")
+        
+    script_path = f"/app/scripts/smtp_tests/test_dmarc.{ext}"
+    if not os.path.exists(script_path):
+        # Local dev path fallback
+        script_path = f"scripts/smtp_tests/test_dmarc.{ext}"
+        
+    try:
+        with open(script_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            
+        # Dynamically inject defaults into the script
+        if script_type.lower() == "powershell":
+            # For PS1, we can replace the default param values
+            content = content.replace('$HostName = "localhost"', f'$HostName = "{os.getenv("FRONTEND_HOST", "localhost")}"')
+            content = content.replace('$Domain = "test-domain.com"', f'$Domain = "{domain}"') # Note: Template might vary
+            # In my new version of ps1, parameters are:
+            # [string]$HostName = "localhost",
+            # [string]$Domain = "test-domain.com",
+            # [string]$Recipient = "report@dmarc.domain.com"
+            content = content.replace(' = "test-domain.com"', f' = "{domain}"')
+            content = content.replace(' = "report@dmarc.domain.com"', f' = "{recipient}"')
+            content = content.replace(' = 13062', f' = 13062') # Port usually stays the same
+        elif script_type.lower() == "python":
+            content = content.replace('default="test-domain.com"', f'default="{domain}"')
+            content = content.replace('default="report@dmarc.domain.com"', f'default="{recipient}"')
+        
+        from fastapi.responses import Response
+        return Response(content=content, media_type="text/plain", headers={
+            "Content-Disposition": f"attachment; filename=test_dmarc.{ext}"
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load script template: {str(e)}")
+

@@ -640,12 +640,18 @@ function Dashboard() {
               </div>
               <div className="docs-item">
                 <h4>External Validation</h4>
-                <p>Use the provided scripts to test from external environments. Download the scripts here:</p>
-                <ul style={{marginTop: '0.5rem', listStyleType: 'disc', paddingLeft: '1.5rem'}}>
-                  <li><a href="/scripts/test_dmarc.py" download style={{color: 'var(--accent-blue)', textDecoration: 'none'}}>test_dmarc.py</a> (Python)</li>
-                  <li><a href="/scripts/test_dmarc.ps1" download style={{color: 'var(--accent-blue)', textDecoration: 'none'}}>test_dmarc.ps1</a> (PowerShell)</li>
-                  <li><a href="/scripts/test_dmarc.sh" download style={{color: 'var(--accent-blue)', textDecoration: 'none'}}>test_dmarc.sh</a> (Bash)</li>
-                </ul>
+                <p>Use the provided scripts to test from external environments. These scripts are dynamically generated and pre-configured with your managed domains:</p>
+                <div style={{display: 'flex', gap: '0.8rem', marginTop: '1rem', flexWrap: 'wrap'}}>
+                  <button className="action-btn small-btn" onClick={() => window.open(`/api/admin/smtp/scripts/powershell?token=${localStorage.getItem('token')}`, '_blank')}>
+                    Download PowerShell (.ps1)
+                  </button>
+                  <button className="action-btn small-btn" onClick={() => window.open(`/api/admin/smtp/scripts/python?token=${localStorage.getItem('token')}`, '_blank')}>
+                    Download Python (.py)
+                  </button>
+                  <button className="action-btn small-btn" onClick={() => window.open(`/api/admin/smtp/scripts/bash?token=${localStorage.getItem('token')}`, '_blank')}>
+                    Download Bash (.sh)
+                  </button>
+                </div>
               </div>
             </section>
           </div>

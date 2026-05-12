@@ -12,6 +12,11 @@ RAW_PATH = os.getenv("RAW_PATH", "/data/raw")
 
 class DMARCReceivingHandler:
     async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
+        # Strip angle brackets if present (e.g. <user@domain.com>)
+        address = address.strip()
+        if address.startswith('<') and address.endswith('>'):
+            address = address[1:-1]
+
         try:
             if '@' not in address:
                 return '501 Bad recipient address syntax'
