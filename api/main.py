@@ -1159,30 +1159,27 @@ def get_configured_test_script(
         # Local dev path fallback
         script_path = f"scripts/smtp_tests/test_dmarc.{ext}"
         
-    try:
-        with open(script_path, "r", encoding="utf-8") as f:
-            content = f.read()
-            
-        # Dynamically inject defaults into the script
-        if script_type.lower() == "powershell":
-            # For PS1, we can replace the default param values
-            content = content.replace('$HostName = "localhost"', f'$HostName = "{os.getenv("FRONTEND_HOST", "localhost")}"')
-            content = content.replace('$Domain = "test-domain.com"', f'$Domain = "{domain}"') # Note: Template might vary
-            # In my new version of ps1, parameters are:
-            # [string]$HostName = "localhost",
-            # [string]$Domain = "test-domain.com",
-            # [string]$Recipient = "report@dmarc.domain.com"
-            content = content.replace(' = "test-domain.com"', f' = "{domain}"')
-            content = content.replace(' = "report@dmarc.domain.com"', f' = "{recipient}"')
-            content = content.replace(' = 13062', f' = 13062') # Port usually stays the same
-        elif script_type.lower() == "python":
-            content = content.replace('default="test-domain.com"', f'default="{domain}"')
-            content = content.replace('default="report@dmarc.domain.com"', f'default="{recipient}"')
+    with open(script_path, "r", encoding="utf-8") as f:
+        content = f.read()
         
-        from fastapi.responses import Response
-        return Response(content=content, media_type="text/plain", headers={
-            "Content-Disposition": f"attachment; filename=test_dmarc.{ext}"
-        })
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load script template: {str(e)}")
+    # Dynamically inject defaults into the script
+    if script_type.lower() == "powershell":
+        # For PS1, we can replace the default param values
+        content = content.replace('$HostName = "localhost"', f'$HostName = "{os.getenv("FRONTEND_HOST", "localhost")}"')
+        content = content.replace('$Domain = "test-domain.com"', f'$Domain = "{domain}"') # Note: Template might vary
+        # In my new version of ps1, parameters are:
+        # [string]$HostName = "localhost",
+        # [string]$Domain = "test-domain.com",
+        # [string]$Recipient = "report@dmarc.domain.com"
+        content = content.replace(' = "test-domain.com"', f' = "{domain}"')
+        content = content.replace(' = "report@dmarc.domain.com"', f' = "{recipient}"')
+        content = content.replace(' = 13062', f' = 13062') # Port usually stays the same
+    elif script_type.lower() == "python":
+        content = content.replace('default="test-domain.com"', f'default="{domain}"')
+        content = content.replace('default="report@dmarc.domain.com"', f'default="{recipient}"')
+    
+    from fastapi.responses import Response
+    return Response(content=content, media_type="text/plain", headers={
+        "Content-Disposition": f"attachment; filename=test_dmarc.{ext}"
+    })
 
