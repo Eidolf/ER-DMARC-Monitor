@@ -1163,21 +1163,23 @@ def get_configured_test_script(
         with open(script_path, "r", encoding="utf-8") as f:
             content = f.read()
             
+        from urllib.parse import urlparse
+        parsed_url = urlparse(os.getenv("FRONTEND_URL", "http://localhost"))
+        frontend_host = parsed_url.hostname or "localhost"
+        
         # Dynamically inject defaults into the script
         if script_type.lower() == "powershell":
-            # For PS1, we can replace the default param values
-            content = content.replace('$HostName = "localhost"', f'$HostName = "{os.getenv("FRONTEND_HOST", "localhost")}"')
-            content = content.replace('$Domain = "test-domain.com"', f'$Domain = "{domain}"') # Note: Template might vary
-            # In my new version of ps1, parameters are:
-            # [string]$HostName = "localhost",
-            # [string]$Domain = "test-domain.com",
-            # [string]$Recipient = "report@dmarc.domain.com"
-            content = content.replace(' = "test-domain.com"', f' = "{domain}"')
-            content = content.replace(' = "report@dmarc.domain.com"', f' = "{recipient}"')
-            content = content.replace(' = 13062', f' = 13062') # Port usually stays the same
+            content = content.replace('$HostName = "localhost"', f'$HostName = "{frontend_host}"')
+            content = content.replace('[Parameter(Mandatory=$true)][string]$Domain', f'[Parameter(Mandatory=$false)][string]$Domain = "{domain}"')
+            content = content.replace('[Parameter(Mandatory=$true)][string]$Recipient', f'[Parameter(Mandatory=$false)][string]$Recipient = "{recipient}"')
         elif script_type.lower() == "python":
-            content = content.replace('default="test-domain.com"', f'default="{domain}"')
-            content = content.replace('default="report@dmarc.domain.com"', f'default="{recipient}"')
+            content = content.replace('default="localhost"', f'default="{frontend_host}"')
+            content = content.replace('required=True, help="Domain to report for"', f'default="{domain}", help="Domain to report for"')
+            content = content.replace('required=True, help="Recipient address"', f'default="{recipient}", help="Recipient address"')
+        elif script_type.lower() == "bash":
+            content = content.replace('HOST=${1:-"localhost"}', f'HOST=${{1:-"{frontend_host}"}}')
+            content = content.replace('DOMAIN=${3:-"test-domain.com"}', f'DOMAIN=${{3:-"{domain}"}}')
+            content = content.replace('RECIPIENT=${4:-"report@dmarc.domain.com"}', f'RECIPIENT=${{4:-"{recipient}"}}')
         
         from fastapi.responses import Response
         return Response(content=content, media_type="text/plain", headers={
