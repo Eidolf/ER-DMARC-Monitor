@@ -23,13 +23,17 @@ jobs:
       matrix:
         component:
           - name: api
-            context: ./api
+            context: .
+            file: ./api/Dockerfile
           - name: frontend
             context: ./frontend
+            file: ./frontend/Dockerfile
           - name: smtp-ingester
             context: ./smtp-ingester
+            file: ./smtp-ingester/Dockerfile
           - name: dmarc-parser
             context: ./dmarc-parser
+            file: ./dmarc-parser/Dockerfile
 
     steps:
       - name: Checkout repository
@@ -68,6 +72,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.component.context }}
+          file: ${{ matrix.component.file }}
           # Push only if not running locally via act
           push: ${{ env.ACT != 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
