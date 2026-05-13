@@ -34,8 +34,6 @@ services:
       - FRONTEND_URL=${FRONTEND_URL}
     ports:
       - "13061:8080"
-    volumes:
-      - ./scripts:/app/scripts:ro
     depends_on:
       - postgres
       - redis
