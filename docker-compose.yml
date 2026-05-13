@@ -17,8 +17,8 @@ services:
 
   api:
     build:
-      context: ./api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: api/Dockerfile
     image: ghcr.io/eidolf/er-dmarc-monitor-api:latest
     environment:
       - DB_DSN=postgresql+psycopg://${POSTGRES_USER:-dmarc_admin}:${POSTGRES_PASSWORD:-secure_dmarc_pass}@postgres:5432/${POSTGRES_DB:-dmarc_monitor}
