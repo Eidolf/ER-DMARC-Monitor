@@ -146,6 +146,24 @@ function Dashboard() {
   const [ipDetails, setIpDetails] = useState<any>(null);
   const [ipLoading, setIpLoading] = useState(false);
 
+  const downloadScript = async (type: string) => {
+    try {
+      const res = await authFetch(`/api/admin/smtp/scripts/${type}`);
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `test_dmarc.${type === 'powershell' ? 'ps1' : type === 'python' ? 'py' : 'sh'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      alert('Error downloading script');
+    }
+  };
+
   const handleOpenIpModal = (ip: string) => {
     setIpModal(ip);
     setIpLoading(true);
@@ -642,13 +660,13 @@ function Dashboard() {
                 <h4>External Validation</h4>
                 <p>Use the provided scripts to test from external environments. These scripts are dynamically generated and pre-configured with your managed domains:</p>
                 <div style={{display: 'flex', gap: '0.8rem', marginTop: '1rem', flexWrap: 'wrap'}}>
-                  <button className="action-btn small-btn" onClick={() => window.open(`/api/admin/smtp/scripts/powershell?token=${localStorage.getItem('token')}`, '_blank')}>
+                  <button className="action-btn small-btn" onClick={() => downloadScript('powershell')}>
                     Download PowerShell (.ps1)
                   </button>
-                  <button className="action-btn small-btn" onClick={() => window.open(`/api/admin/smtp/scripts/python?token=${localStorage.getItem('token')}`, '_blank')}>
+                  <button className="action-btn small-btn" onClick={() => downloadScript('python')}>
                     Download Python (.py)
                   </button>
-                  <button className="action-btn small-btn" onClick={() => window.open(`/api/admin/smtp/scripts/bash?token=${localStorage.getItem('token')}`, '_blank')}>
+                  <button className="action-btn small-btn" onClick={() => downloadScript('bash')}>
                     Download Bash (.sh)
                   </button>
                 </div>
