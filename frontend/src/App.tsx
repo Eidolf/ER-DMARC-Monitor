@@ -230,6 +230,7 @@ function Dashboard() {
       start: start.toISOString().split('T')[0],
       end: end.toISOString().split('T')[0]
     });
+    setSearchQuery('');
   };
 
   useEffect(() => { loadData(); }, [dateFilter]);
@@ -770,9 +771,20 @@ function Dashboard() {
           <div className="glass-card modal-content wide-modal" style={{ padding: '2rem' }}>
              <div className="modal-header">
                 <div><h2>{inspectDomain === '__global__' ? 'Global Forensic Analysis' : `Deep Analysis: ${inspectDomain}`}</h2><p>Forensic overview</p></div>
-                <div className="header-actions">
-                    <input type="text" placeholder="Search..." className="text-input" style={{ width: '200px', marginRight: '1rem' }} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                    <button onClick={() => setInspectDomain(null)} className="close-btn">&times;</button>
+                <div className="header-actions" style={{ display: 'flex', alignItems: 'center' }}>
+                     <div style={{ position: 'relative', display: 'inline-block' }}>
+                       <input type="text" placeholder="Search..." className="text-input" style={{ width: '200px', marginRight: '1rem', paddingRight: searchQuery ? '30px' : '10px' }} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                       {searchQuery && (
+                         <button 
+                           onClick={() => setSearchQuery('')} 
+                           style={{ position: 'absolute', right: '25px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.2rem', padding: 0 }}
+                           title="Clear search"
+                         >
+                           &times;
+                         </button>
+                       )}
+                     </div>
+                     <button onClick={() => setInspectDomain(null)} className="close-btn">&times;</button>
                 </div>
              </div>
              <div className="modal-tabs">
