@@ -269,6 +269,18 @@ function Dashboard() {
       .catch(err => console.error(err));
   };
 
+  useEffect(() => {
+    if (!inspectDomain) return;
+    const domainName = inspectDomain === "__global__" ? null : inspectDomain;
+    const url = domainName 
+      ? `/api/domains/${domainName}/records?start_date=${dateFilter.start}&end_date=${dateFilter.end}` 
+      : `/api/reports/records?start_date=${dateFilter.start}&end_date=${dateFilter.end}`;
+    authFetch(url)
+      .then(res => res.json())
+      .then(json => { if (Array.isArray(json)) setDetailedRecords(json); })
+      .catch(err => console.error(err));
+  }, [inspectDomain, dateFilter]);
+
   const handleFileUpload = async () => {
     if (!uploadFiles) return;
     setIsUploading(true);
@@ -784,7 +796,30 @@ function Dashboard() {
                         <div className={`summary-item ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer'}}>
                           <label>Unauthorized</label><span className="text-red">{detailedRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
                         </div>
-                        <div className="summary-item"><label>Period</label><span>{formatDate(dateFilter.start)} to {formatDate(dateFilter.end)}</span></div>
+                        <div className="summary-item date-picker-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '220px', padding: '0.4rem 0.8rem' }}>
+                          <label>Period</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div className="date-input-wrapper" style={{ margin: 0, padding: '2px 8px', fontSize: '0.85rem' }}>
+                              <div className="date-display" style={{ minWidth: '75px' }}>{formatDate(dateFilter.start)}</div>
+                              <input 
+                                type="date" 
+                                className="date-picker" 
+                                value={dateFilter.start} 
+                                onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} 
+                              />
+                            </div>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>to</span>
+                            <div className="date-input-wrapper" style={{ margin: 0, padding: '2px 8px', fontSize: '0.85rem' }}>
+                              <div className="date-display" style={{ minWidth: '75px' }}>{formatDate(dateFilter.end)}</div>
+                              <input 
+                                type="date" 
+                                className="date-picker" 
+                                value={dateFilter.end} 
+                                onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} 
+                              />
+                            </div>
+                          </div>
+                        </div>
                         <div className="summary-item">
                           <label>Health</label><span>{totalInRecords > 0 ? Math.round(((spfPassCount + dkimPassCount) / (2 * totalInRecords)) * 100) : 0}%</span>
                         </div>
@@ -848,7 +883,28 @@ function Dashboard() {
                         ) : (
                             <table className="modern-table">
                                 <thead><tr><th className="sortable-header" onClick={() => handleSort('org_name')}><div className="th-content">Reporting Org <SortIcon active={sortConfig.key==='org_name'} direction={sortConfig.direction} /></div></th><th>Volume</th><th>SPF Fail</th><th>DKIM Fail</th></tr></thead>
-                                <tbody>{reporters.map(([name, meta]) => (<tr key={name}><td>{name}</td><td>{meta.count}</td><td>{meta.spfFail}</td><td>{meta.dkimFail}</td></tr>))}</tbody>
+                                <tbody>
+                                  {reporters.map(([name, meta]) => (
+                                    <tr key={name}>
+                                      <td>
+                                        <span 
+                                          className="clickable-reporter" 
+                                          style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--text-primary)' }}
+                                          onClick={() => {
+                                            setSearchQuery(name);
+                                            setInspectTab('log');
+                                          }}
+                                          title={`Filter traffic log by ${name}`}
+                                        >
+                                          {name}
+                                        </span>
+                                      </td>
+                                      <td>{meta.count}</td>
+                                      <td>{meta.spfFail}</td>
+                                      <td>{meta.dkimFail}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
                             </table>
                         )}
                     </div>
