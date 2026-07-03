@@ -145,6 +145,7 @@ function Dashboard() {
   const [ipModal, setIpModal] = useState<string | null>(null);
   const [ipDetails, setIpDetails] = useState<any>(null);
   const [ipLoading, setIpLoading] = useState(false);
+  const [dkimHelpModal, setDkimHelpModal] = useState<{ ip: string; domain: string } | null>(null);
 
   const downloadScript = async (type: string) => {
     try {
@@ -817,7 +818,25 @@ function Dashboard() {
                                             </td>
                                             {inspectDomain === '__global__' && <td style={{fontSize: '0.8rem', opacity: 0.8}}>{(r as any).domain_name}</td>}
                                             <td>{r.count}</td><td>{r.org_name}</td><td>{formatDate(r.date)}</td>
-                                            <td><span className={`status-tag ${r.spf_pass && r.dkim_pass ? 'status-pass' : 'status-fail'}`}>{r.spf_pass && r.dkim_pass ? 'PASS' : 'ALRT'}</span></td>
+                                            <td>
+                                              {r.spf_pass && !r.dkim_pass ? (
+                                                <span 
+                                                  className="status-tag status-fail clickable-alert" 
+                                                  onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    setDkimHelpModal({ ip: r.source_ip, domain: inspectDomain === '__global__' ? ((r as any).domain_name || 'your domain') : inspectDomain }); 
+                                                  }}
+                                                  title="SPF Passed, DKIM Failed. Click for troubleshooting."
+                                                  style={{ cursor: 'pointer', borderBottom: '1px dotted var(--text-red)' }}
+                                                >
+                                                  ALRT 💡
+                                                </span>
+                                              ) : (
+                                                <span className={`status-tag ${r.spf_pass && r.dkim_pass ? 'status-pass' : 'status-fail'}`}>
+                                                  {r.spf_pass && r.dkim_pass ? 'PASS' : 'ALRT'}
+                                                </span>
+                                              )}
+                                            </td>
                                         </tr>
                                         {expandedRecordId === r.id && (
                                             <tr className="auth-detail-row"><td colSpan={5}><div className="auth-detail-box"><h5>Forensics</h5><div className="detail-cols"><div className="detail-col"><h6>SPF</h6>{r.spf_auth_details.map((s: any, i: number) => (<div key={i} className="auth-entry"><span>{s.domain}: {s.result}</span></div>))}</div><div className="detail-col"><h6>DKIM</h6>{r.dkim_auth_details.map((d: any, i: number) => (<div key={i} className="auth-entry"><span>{d.domain}: {d.result}</span></div>))}</div></div></div></td></tr>
@@ -913,6 +932,62 @@ function Dashboard() {
             </div>
             <div className="modal-footer" style={{marginTop: '1.5rem', borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', textAlign: 'right'}}>
               <button className="action-btn" onClick={() => setIpModal(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {dkimHelpModal && (
+        <div className="modal-overlay secondary-modal" onClick={() => setDkimHelpModal(null)}>
+          <div className="modal-content glass-card" style={{maxWidth: '650px'}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>DMARC Troubleshooting: SPF Pass / DKIM Fail</h3>
+              <button className="close-btn" onClick={() => setDkimHelpModal(null)}>×</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              <div className="insight-card" style={{ margin: 0, borderLeft: '4px solid #ef4444' }}>
+                <p><strong>Report Context:</strong></p>
+                <ul style={{ margin: '0.5rem 0 0 1.2rem', padding: 0 }}>
+                  <li><strong>Domain:</strong> <code>{dkimHelpModal.domain}</code></li>
+                  <li><strong>Sender IP:</strong> <code>{dkimHelpModal.ip}</code></li>
+                  <li><strong>Status:</strong> SPF is valid (IP authorized), but DKIM signature is missing, invalid, or misaligned.</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4>Why is this happening? (Hybrid & On-Premise Relays)</h4>
+                <p style={{ marginTop: '0.5rem', color: 'var(--text-secondary)' }}>
+                  If your primary email flows through Exchange Online (Microsoft 365 / O365), but you use an on-premises mailhub or external smart relay for legacy systems, emails sent from on-premises will carry your domain in the <code>From:</code> header. 
+                  Although the smart relay IP is listed in your SPF record (which validates the IP), the email likely lacks a valid DKIM signature signed by that relay, or it uses the relay's default envelope-from domain causing DMARC alignment failures.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                <h4>How to Resolve DMARC Alignment:</h4>
+                
+                <div style={{ padding: '1rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '6px', border: '1px solid var(--border-glass)' }}>
+                  <h5>Option 1: Enable DKIM Signing on your On-Premise Smart Relay (Recommended)</h5>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                    Configure the on-premises smart relay/mailhub (e.g. Postfix, Exchange On-Premises, Cisco ESA) to sign outbound messages with a DKIM key for <code>{dkimHelpModal.domain}</code>. Publish the selector TXT record in your public DNS (e.g., <code>selector._domainkey.{dkimHelpModal.domain}</code>).
+                  </p>
+                </div>
+
+                <div style={{ padding: '1rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '6px', border: '1px solid var(--border-glass)' }}>
+                  <h5>Option 2: Route On-Premise outbound via Exchange Online Connector</h5>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                    Instead of relaying directly to the internet, route mail from on-premises systems through Exchange Online via an Inbound Connector. Exchange Online will then automatically sign the outgoing messages using your domain's M365 DKIM configuration.
+                  </p>
+                </div>
+
+                <div style={{ padding: '1rem', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '6px', border: '1px solid var(--border-glass)' }}>
+                  <h5>Option 3: Segregate Traffic using a Dedicated Subdomain</h5>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                    Route legacy or automated system alerts from a dedicated subdomain (e.g., <code>noreply@system.{dkimHelpModal.domain}</code>). You can configure a separate SPF and relaxed DMARC policy for this subdomain, preventing DKIM failures from impacting your root domain's DMARC reputation.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer" style={{marginTop: '1.5rem', borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', textAlign: 'right'}}>
+              <button className="action-btn" onClick={() => setDkimHelpModal(null)}>Close Helper</button>
             </div>
           </div>
         </div>
