@@ -781,7 +781,7 @@ function Dashboard() {
              </div>
              <div className="analysis-grid">
                 <div className="analysis-col">
-                    <div className="report-summary-strip" style={{margin: '0', width: '100%', justifyContent: 'space-around'}}>
+                    <div className="report-summary-strip" style={{margin: '0', width: '100%', justifyContent: 'space-around', alignItems: 'flex-start'}}>
                         <div className={`summary-item ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')} style={{cursor: 'pointer'}}>
                           <label>Volume</label><span>{totalInRecords.toLocaleString()}</span>
                         </div>
@@ -794,27 +794,32 @@ function Dashboard() {
                         <div className={`summary-item ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer'}}>
                           <label>Unauthorized</label><span className="text-red">{detailedRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
                         </div>
-                        <div className="summary-item date-picker-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '380px', padding: '0.4rem 0.8rem' }}>
+                        <div className="summary-item date-picker-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', minWidth: '240px' }}>
                           <label>Period</label>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div className="date-input-wrapper" style={{ margin: 0 }}>
-                              <input 
-                                type="date" 
-                                className="date-picker" 
-                                value={dateFilter.start} 
-                                onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} 
-                              />
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', minWidth: '40px' }}>From:</span>
+                              <div className="date-input-wrapper" style={{ margin: 0 }}>
+                                <input 
+                                  type="date" 
+                                  className="date-picker" 
+                                  value={dateFilter.start} 
+                                  onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })} 
+                                />
+                              </div>
                             </div>
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>to</span>
-                            <div className="date-input-wrapper" style={{ margin: 0 }}>
-                              <input 
-                                type="date" 
-                                className="date-picker" 
-                                value={dateFilter.end} 
-                                onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} 
-                              />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', minWidth: '40px' }}>To:</span>
+                              <div className="date-input-wrapper" style={{ margin: 0 }}>
+                                <input 
+                                  type="date" 
+                                  className="date-picker" 
+                                  value={dateFilter.end} 
+                                  onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} 
+                                />
+                              </div>
                             </div>
-                            <button className="action-btn small-btn" onClick={handleResetFilter} style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', border: '1px solid var(--border-glass)', padding: '0.35rem 0.6rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>Reset</button>
+                            <button className="action-btn small-btn" onClick={handleResetFilter} style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', border: '1px solid var(--border-glass)', padding: '0.25rem 0.6rem', fontSize: '0.75rem', width: '100%', marginTop: '2px' }}>Reset Period</button>
                           </div>
                         </div>
                         <div className="summary-item">
