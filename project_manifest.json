@@ -1,0 +1,635 @@
+{
+  "metadata": {
+    "name": "ER-DMARC-Monitor",
+    "description": "Comprehensive, scalable DMARC RUA/RUF report monitoring and compliance system",
+    "entry_points": {
+      "backend": "api/main.py",
+      "frontend": "frontend/src/main.tsx"
+    }
+  },
+  "file_tree": {
+    "api": "FastAPI backend exposing REST endpoints for dashboard, admin settings, and user auth",
+    "dmarc-parser": "Asynchronous worker that parses XML reports from raw payloads into the PostgreSQL database",
+    "smtp-ingester": "SMTP listener receiving DMARC XML/GZ/ZIP reports and writing to the queue volume",
+    "frontend": "Vite + React + TypeScript frontend dashboard displaying authentication compliance stats",
+    "scripts": "Setup scripts, developer utilities, and SMTP test tools"
+  },
+  "db_models": {
+    "User": {
+      "file": "api/models.py",
+      "fields": {
+        "id": "int | None",
+        "email": "str",
+        "username": "str",
+        "hashed_password": "str | None",
+        "role": "UserRole",
+        "is_active": "bool",
+        "auth_source": "AuthSource",
+        "mfa_enabled": "bool",
+        "mfa_secret": "str | None",
+        "mfa_recovery_codes": "str | None",
+        "sso_provider": "str | None",
+        "sso_id": "str | None",
+        "created_at": "datetime",
+        "last_login": "datetime | None",
+        "last_login_ip": "str | None",
+        "last_login_method": "str | None"
+      },
+      "relationships": []
+    },
+    "SystemSettings": {
+      "file": "api/models.py",
+      "fields": {
+        "id": "int | None",
+        "allow_local_login": "bool",
+        "allow_sso_login": "bool",
+        "enforce_mfa_admins": "bool",
+        "enforce_mfa_analysts": "bool",
+        "entra_tenant_id": "str | None",
+        "entra_client_id": "str | None",
+        "entra_client_secret": "str | None",
+        "entra_tenant_type": "str",
+        "default_sso_role": "UserRole",
+        "public_url": "str | None",
+        "title_part1": "str",
+        "title_part2": "str",
+        "color_part1": "str",
+        "color_part2": "str",
+        "logo_url": "str | None",
+        "smtp_test_mode_enabled": "bool",
+        "allowed_test_recipients": "str | None",
+        "test_message_retention_days": "int"
+      },
+      "relationships": []
+    },
+    "LoginAudit": {
+      "file": "api/models.py",
+      "fields": {
+        "id": "int | None",
+        "user_id": "int",
+        "timestamp": "datetime",
+        "ip_address": "str",
+        "method": "str",
+        "status": "str",
+        "detail": "str | None"
+      },
+      "relationships": []
+    },
+    "Domain": {
+      "file": "api/models.py",
+      "fields": {
+        "id": "int | None",
+        "name": "str",
+        "is_active": "bool",
+        "dmarc_policy": "str | None"
+      },
+      "relationships": []
+    },
+    "ReportMetadata": {
+      "file": "api/models.py",
+      "fields": {
+        "id": "int | None",
+        "org_name": "str",
+        "email": "str",
+        "report_id": "str",
+        "date_begin": "datetime",
+        "date_end": "datetime",
+        "domain_name": "str",
+        "is_test": "bool",
+        "records": "list[ReportRecord]"
+      },
+      "relationships": [
+        "ReportRecord"
+      ]
+    },
+    "ReportRecord": {
+      "file": "api/models.py",
+      "fields": {
+        "id": "int | None",
+        "report_id": "int",
+        "source_ip": "str",
+        "count": "int",
+        "disposition": "str",
+        "dkim_pass": "bool",
+        "spf_pass": "bool",
+        "spf_auth_results": "str | None",
+        "dkim_auth_results": "str | None",
+        "report": "ReportMetadata"
+      },
+      "relationships": [
+        "ReportMetadata"
+      ]
+    },
+    "SMTPListeningDomain": {
+      "file": "api/models.py",
+      "fields": {
+        "id": "int | None",
+        "domain_name": "str",
+        "is_active": "bool",
+        "created_at": "datetime"
+      },
+      "relationships": []
+    },
+    "SMTPRecipient": {
+      "file": "api/models.py",
+      "fields": {
+        "id": "int | None",
+        "listening_domain_id": "int",
+        "local_part": "str",
+        "is_active": "bool",
+        "is_dmarc_compliant": "bool"
+      },
+      "relationships": []
+    }
+  },
+  "services": {
+    "dns_utilsUtils": {
+      "file": "api/dns_utils.py",
+      "methods": [
+        {
+          "name": "query_txt",
+          "signature": "def query_txt(name)",
+          "description": ""
+        },
+        {
+          "name": "get_spf_record",
+          "signature": "def get_spf_record(domain)",
+          "description": ""
+        },
+        {
+          "name": "get_dmarc_record",
+          "signature": "def get_dmarc_record(domain)",
+          "description": ""
+        },
+        {
+          "name": "get_dkim_status_heuristic",
+          "signature": "def get_dkim_status_heuristic(domain)",
+          "description": ""
+        }
+      ]
+    },
+    "ip_utilsUtils": {
+      "file": "api/ip_utils.py",
+      "methods": [
+        {
+          "name": "get_ip_enrichment",
+          "signature": "def get_ip_enrichment(ip_address)",
+          "description": ""
+        }
+      ]
+    },
+    "entraUtils": {
+      "file": "api/entra.py",
+      "methods": [
+        {
+          "name": "get_msal_app",
+          "signature": "def get_msal_app(client_id, client_secret, tenant_id)",
+          "description": ""
+        },
+        {
+          "name": "get_auth_url",
+          "signature": "def get_auth_url(client_id, client_secret, tenant_id, redirect_uri)",
+          "description": ""
+        },
+        {
+          "name": "acquire_token_by_code",
+          "signature": "def acquire_token_by_code(code, client_id, client_secret, tenant_id, redirect_uri)",
+          "description": ""
+        },
+        {
+          "name": "validate_id_token",
+          "signature": "def validate_id_token(id_token_claims)",
+          "description": ""
+        }
+      ]
+    },
+    "authUtils": {
+      "file": "api/auth.py",
+      "methods": [
+        {
+          "name": "verify_password",
+          "signature": "def verify_password(plain_password, hashed_password)",
+          "description": ""
+        },
+        {
+          "name": "get_password_hash",
+          "signature": "def get_password_hash(password)",
+          "description": ""
+        },
+        {
+          "name": "create_access_token",
+          "signature": "def create_access_token(data, expires_delta)",
+          "description": ""
+        },
+        {
+          "name": "create_mfa_token",
+          "signature": "def create_mfa_token(data)",
+          "description": ""
+        },
+        {
+          "name": "generate_totp_secret",
+          "signature": "def generate_totp_secret()",
+          "description": ""
+        },
+        {
+          "name": "get_totp_uri",
+          "signature": "def get_totp_uri(secret, email)",
+          "description": ""
+        },
+        {
+          "name": "verify_totp",
+          "signature": "def verify_totp(secret, token)",
+          "description": ""
+        },
+        {
+          "name": "get_session",
+          "signature": "def get_session()",
+          "description": ""
+        }
+      ]
+    }
+  },
+  "endpoints": [
+    {
+      "path": "startup",
+      "method": "ON_EVENT",
+      "summary": "On startup",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/settings/branding",
+      "method": "PATCH",
+      "summary": "Update branding",
+      "description": "",
+      "request_model": "dict",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/smtp/inbound",
+      "method": "GET",
+      "summary": "Get smtp inbound config",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/smtp/inbound/domains",
+      "method": "POST",
+      "summary": "Add listening domain",
+      "description": "",
+      "request_model": "ListeningDomainCreate",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/smtp/inbound/domains/{domain_id}",
+      "method": "PATCH",
+      "summary": "Update listening domain",
+      "description": "",
+      "request_model": "dict",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/smtp/inbound/domains/{domain_id}",
+      "method": "DELETE",
+      "summary": "Delete listening domain",
+      "description": "",
+      "request_model": "int",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/smtp/inbound/domains/{domain_id}/recipients",
+      "method": "POST",
+      "summary": "Add recipient",
+      "description": "",
+      "request_model": "RecipientCreate",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/smtp/inbound/recipients/{recipient_id}",
+      "method": "DELETE",
+      "summary": "Delete recipient",
+      "description": "",
+      "request_model": "int",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/settings/global",
+      "method": "GET",
+      "summary": "Get global settings",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/settings/global",
+      "method": "POST",
+      "summary": "Update global settings",
+      "description": "",
+      "request_model": "SystemSettings",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/settings/branding",
+      "method": "GET",
+      "summary": "Get branding",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/audit",
+      "method": "GET",
+      "summary": "Get audit logs",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/users",
+      "method": "GET",
+      "summary": "Get users",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/users",
+      "method": "POST",
+      "summary": "Create user",
+      "description": "",
+      "request_model": "UserCreate",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/users/{user_id}",
+      "method": "PATCH",
+      "summary": "Update user",
+      "description": "",
+      "request_model": "UserUpdate",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/users/{user_id}/reset-mfa",
+      "method": "POST",
+      "summary": "Reset user mfa",
+      "description": "",
+      "request_model": "int",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/users/{user_id}",
+      "method": "DELETE",
+      "summary": "Delete user",
+      "description": "",
+      "request_model": "int",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/auth/profile/password",
+      "method": "POST",
+      "summary": "Change password",
+      "description": "",
+      "request_model": "PasswordChangeRequest",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/auth/profile/mfa/setup",
+      "method": "POST",
+      "summary": "Setup mfa",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/auth/profile/mfa/enable",
+      "method": "POST",
+      "summary": "Enable mfa",
+      "description": "",
+      "request_model": "str",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/auth/profile/activity",
+      "method": "GET",
+      "summary": "Get activity",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/auth/login",
+      "method": "POST",
+      "summary": "Login",
+      "description": "",
+      "request_model": "LoginRequest",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/auth/mfa/verify",
+      "method": "POST",
+      "summary": "Verify mfa",
+      "description": "",
+      "request_model": "MFAVerifyRequest",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/auth/sso/login",
+      "method": "GET",
+      "summary": "Sso login",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/auth/sso/callback",
+      "method": "GET",
+      "summary": "Sso callback",
+      "description": "",
+      "request_model": "str",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/auth/me",
+      "method": "GET",
+      "summary": "Get me",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/health",
+      "method": "GET",
+      "summary": "Health check",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/domains",
+      "method": "POST",
+      "summary": "Create domain",
+      "description": "",
+      "request_model": "DomainCreate",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/domains",
+      "method": "GET",
+      "summary": "Get domains",
+      "description": "",
+      "request_model": "str",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/domains/{domain_id}/dns",
+      "method": "GET",
+      "summary": "Get domain dns details",
+      "description": "",
+      "request_model": "int",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/domains/{domain_id}",
+      "method": "DELETE",
+      "summary": "Delete domain",
+      "description": "",
+      "request_model": "int",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/domains/{domain_name}/records",
+      "method": "GET",
+      "summary": "Get domain records",
+      "description": "",
+      "request_model": "str",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/reports/records",
+      "method": "GET",
+      "summary": "Get all records",
+      "description": "",
+      "request_model": "str",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/ips/{ip_address}",
+      "method": "GET",
+      "summary": "Get ip details",
+      "description": "",
+      "request_model": "str",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/reports/stats",
+      "method": "GET",
+      "summary": "Get report stats",
+      "description": "",
+      "request_model": "str",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/smtp/test-trigger",
+      "method": "POST",
+      "summary": "Trigger smtp test",
+      "description": "",
+      "request_model": "str",
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/smtp/test-results",
+      "method": "GET",
+      "summary": "Get test results",
+      "description": "",
+      "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/smtp/scripts/{script_type}",
+      "method": "GET",
+      "summary": "Get configured test script",
+      "description": "",
+      "request_model": "str",
+      "response_model": null,
+      "file": "api/main.py"
+    }
+  ],
+  "frontend": {
+    "components": {
+      "App": {
+        "file": "frontend/src/App.tsx",
+        "description": "Main application container and route controller"
+      },
+      "MFA": {
+        "file": "frontend/src/MFA.tsx",
+        "description": "Multi-Factor Authentication prompt and TOTP validation form"
+      },
+      "Login": {
+        "file": "frontend/src/Login.tsx",
+        "description": "Login view allowing Local and SSO (Entra ID) authentication"
+      },
+      "main": {
+        "file": "frontend/src/main.tsx",
+        "description": "UI component in main.tsx"
+      },
+      "AuthContext": {
+        "file": "frontend/src/AuthContext.tsx",
+        "description": "Authentication Provider context for managing session state, login/logout actions"
+      },
+      "Settings": {
+        "file": "frontend/src/Settings.tsx",
+        "description": "System Settings interface for branding, MFA enforcement, SSO, and SMTP configurations"
+      }
+    },
+    "hooks": {
+      "useAuth": {
+        "file": "frontend/src/AuthContext.tsx",
+        "description": "Hook to access authentication status, user information, and authentication functions"
+      }
+    },
+    "routes": {
+      "/": "Dashboard (Requires authentication)",
+      "/login": "Login Page",
+      "/settings": "SettingsView (Admin only)"
+    }
+  }
+}

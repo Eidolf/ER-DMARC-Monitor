@@ -1,0 +1,56 @@
+name: Auto-Regenerate Project Agent Assets
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - 'project_manifest.json'
+      - 'project_connections.json'
+      - 'AGENTS.md'
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  generate-assets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-python-version: '3.10'
+
+      - name: Run Manifest Generator
+        run: |
+          python3 scripts/generate_manifest.py
+
+      - name: Verify JSON Validity
+        run: |
+          python3 -m json.tool project_manifest.json > /dev/null
+          python3 -m json.tool project_connections.json > /dev/null
+
+      - name: Commit and Push Changes
+        if: github.event_name == 'push'
+        run: |
+          git config --local user.name "Eidolf"
+          git config --local user.email "andreas@eidolf.de"
+          git add project_manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: auto-regenerate project_manifest.json [skip ci]"
+            git push
+          else
+            echo "No changes to commit."
+          fi
