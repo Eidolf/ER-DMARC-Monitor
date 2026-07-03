@@ -415,7 +415,6 @@ function Dashboard() {
             <div className="date-input-group">
               <label>From</label>
               <div className="date-input-wrapper">
-                <div className="date-display">{formatDate(dateFilter.start)}</div>
                 <input 
                   type="date" 
                   className="date-picker" 
@@ -427,7 +426,6 @@ function Dashboard() {
             <div className="date-input-group">
               <label>To</label>
               <div className="date-input-wrapper">
-                <div className="date-display">{formatDate(dateFilter.end)}</div>
                 <input 
                   type="date" 
                   className="date-picker" 
@@ -800,7 +798,6 @@ function Dashboard() {
                           <label>Period</label>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <div className="date-input-wrapper" style={{ margin: 0 }}>
-                              <div className="date-display">{formatDate(dateFilter.start)}</div>
                               <input 
                                 type="date" 
                                 className="date-picker" 
@@ -810,7 +807,6 @@ function Dashboard() {
                             </div>
                             <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>to</span>
                             <div className="date-input-wrapper" style={{ margin: 0 }}>
-                              <div className="date-display">{formatDate(dateFilter.end)}</div>
                               <input 
                                 type="date" 
                                 className="date-picker" 

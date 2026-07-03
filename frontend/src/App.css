@@ -217,7 +217,7 @@ nav {
   border: 1px solid var(--border-glass);
   border-radius: 6px;
   overflow: hidden;
-  width: 150px;
+  width: 170px;
 }
 
 .date-display {
@@ -232,12 +232,17 @@ nav {
 .date-picker {
   background: transparent !important;
   border: none !important;
-  color: transparent !important;
+  color: var(--text-primary) !important;
   width: 100%;
   padding: 0.45rem 0.8rem;
   font-family: inherit;
   font-size: 0.9rem;
   z-index: 2;
+  cursor: pointer;
+}
+
+.date-picker::-webkit-calendar-picker-indicator {
+  filter: invert(1);
   cursor: pointer;
 }
 
