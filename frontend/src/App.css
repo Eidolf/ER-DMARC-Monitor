@@ -489,6 +489,7 @@ nav {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1px;
+  white-space: nowrap;
 }
 .summary-item span {
   font-size: 1.5rem;
