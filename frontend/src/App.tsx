@@ -796,11 +796,11 @@ function Dashboard() {
                         <div className={`summary-item ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer'}}>
                           <label>Unauthorized</label><span className="text-red">{detailedRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
                         </div>
-                        <div className="summary-item date-picker-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '220px', padding: '0.4rem 0.8rem' }}>
+                        <div className="summary-item date-picker-item" style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '380px', padding: '0.4rem 0.8rem' }}>
                           <label>Period</label>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div className="date-input-wrapper" style={{ margin: 0, padding: '2px 8px', fontSize: '0.85rem' }}>
-                              <div className="date-display" style={{ minWidth: '75px' }}>{formatDate(dateFilter.start)}</div>
+                            <div className="date-input-wrapper" style={{ margin: 0 }}>
+                              <div className="date-display">{formatDate(dateFilter.start)}</div>
                               <input 
                                 type="date" 
                                 className="date-picker" 
@@ -809,8 +809,8 @@ function Dashboard() {
                               />
                             </div>
                             <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>to</span>
-                            <div className="date-input-wrapper" style={{ margin: 0, padding: '2px 8px', fontSize: '0.85rem' }}>
-                              <div className="date-display" style={{ minWidth: '75px' }}>{formatDate(dateFilter.end)}</div>
+                            <div className="date-input-wrapper" style={{ margin: 0 }}>
+                              <div className="date-display">{formatDate(dateFilter.end)}</div>
                               <input 
                                 type="date" 
                                 className="date-picker" 
@@ -818,6 +818,7 @@ function Dashboard() {
                                 onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })} 
                               />
                             </div>
+                            <button className="action-btn small-btn" onClick={handleResetFilter} style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)', border: '1px solid var(--border-glass)', padding: '0.35rem 0.6rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>Reset</button>
                           </div>
                         </div>
                         <div className="summary-item">
