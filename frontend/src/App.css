@@ -484,6 +484,12 @@ nav {
   flex-direction: column;
   gap: 0.3rem;
 }
+.summary-item:not(.date-picker-item) {
+  height: 4.2rem;
+}
+.summary-item:not(.date-picker-item) span {
+  margin-top: auto;
+}
 .summary-item label {
   font-size: 0.8rem;
   color: var(--text-secondary);
