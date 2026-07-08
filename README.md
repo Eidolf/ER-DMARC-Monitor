@@ -111,3 +111,13 @@ To build and launch the ecosystem securely:
 ```bash
 docker compose up -d --build
 ```
+
+### 🔑 Default Credentials (First Start / Local Development)
+After starting the ecosystem, you can log in to the dashboard at `http://localhost:13060` with the following default administrator credentials:
+* **Username**: `admin`
+* **Password**: `admin123`
+* **Email**: `admin@local`
+
+> [!WARNING]
+> Change the default administrator password immediately after logging in for the first time via the user profile settings.
+

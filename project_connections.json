@@ -1,0 +1,145 @@
+{
+  "features": {
+    "local_authentication": {
+      "description": "Local login flow using username/password combined with multi-factor authentication (MFA/TOTP) validation.",
+      "backend": {
+        "models": ["api/models.py"],
+        "endpoints": [
+          "/auth/login",
+          "/auth/mfa/challenge",
+          "/auth/mfa/validate",
+          "/auth/mfa/recovery"
+        ],
+        "services": ["api/auth.py"]
+      },
+      "frontend": {
+        "components": [
+          "frontend/src/Login.tsx",
+          "frontend/src/MFA.tsx",
+          "frontend/src/App.tsx"
+        ],
+        "hooks": [
+          "frontend/src/AuthContext.tsx"
+        ],
+        "styles": [
+          "frontend/src/App.css",
+          "frontend/src/index.css"
+        ]
+      }
+    },
+    "entra_sso_authentication": {
+      "description": "Single Sign-On (SSO) login flow using Microsoft Entra ID Integration.",
+      "backend": {
+        "models": ["api/models.py"],
+        "endpoints": [
+          "/auth/sso/login",
+          "/auth/sso/callback"
+        ],
+        "services": [
+          "api/entra.py",
+          "api/auth.py"
+        ]
+      },
+      "frontend": {
+        "components": [
+          "frontend/src/Login.tsx",
+          "frontend/src/App.tsx"
+        ],
+        "hooks": [
+          "frontend/src/AuthContext.tsx"
+        ],
+        "styles": [
+          "frontend/src/App.css"
+        ]
+      }
+    },
+    "compliance_dashboard": {
+      "description": "Main visualization dashboard displaying parsed DMARC reports, domain statistics, and IP address intelligence/enrichment.",
+      "backend": {
+        "models": [
+          "api/models.py"
+        ],
+        "endpoints": [
+          "/domains",
+          "/domains/summary",
+          "/domains/{domain_id}/records",
+          "/domains/{domain_id}/reporters",
+          "/enrich/ip/{ip}"
+        ],
+        "services": [
+          "api/dns_utils.py",
+          "api/ip_utils.py"
+        ]
+      },
+      "frontend": {
+        "components": [
+          "frontend/src/App.tsx"
+        ],
+        "hooks": [
+          "frontend/src/AuthContext.tsx"
+        ],
+        "styles": [
+          "frontend/src/App.css"
+        ]
+      }
+    },
+    "admin_settings_management": {
+      "description": "System settings view restricted to Administrators, permitting brand customization, MFA enforcement parameters, SSO client configuration, and SMTP inbound domains configuration.",
+      "backend": {
+        "models": [
+          "api/models.py"
+        ],
+        "endpoints": [
+          "/settings/branding",
+          "/settings/global",
+          "/admin/smtp/inbound",
+          "/admin/smtp/inbound/domains",
+          "/admin/smtp/inbound/domains/{domain_id}",
+          "/admin/smtp/inbound/domains/{domain_id}/recipients"
+        ],
+        "services": [
+          "api/auth.py"
+        ]
+      },
+      "frontend": {
+        "components": [
+          "frontend/src/Settings.tsx",
+          "frontend/src/App.tsx"
+        ],
+        "hooks": [
+          "frontend/src/AuthContext.tsx"
+        ],
+        "styles": [
+          "frontend/src/App.css"
+        ]
+      }
+    },
+    "dmarc_report_ingestion": {
+      "description": "Asynchronous inbound flow handling report ingestion via SMTP or manual XML file uploads.",
+      "backend": {
+        "models": [
+          "api/models.py"
+        ],
+        "endpoints": [
+          "/import/xml",
+          "/import/raw"
+        ],
+        "services": [
+          "smtp-ingester/main.py",
+          "dmarc-parser/main.py"
+        ]
+      },
+      "frontend": {
+        "components": [
+          "frontend/src/App.tsx"
+        ],
+        "hooks": [
+          "frontend/src/AuthContext.tsx"
+        ],
+        "styles": [
+          "frontend/src/App.css"
+        ]
+      }
+    }
+  }
+}

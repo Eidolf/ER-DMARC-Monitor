@@ -217,7 +217,7 @@ nav {
   border: 1px solid var(--border-glass);
   border-radius: 6px;
   overflow: hidden;
-  width: 150px;
+  width: 170px;
 }
 
 .date-display {
@@ -232,12 +232,17 @@ nav {
 .date-picker {
   background: transparent !important;
   border: none !important;
-  color: transparent !important;
+  color: var(--text-primary) !important;
   width: 100%;
   padding: 0.45rem 0.8rem;
   font-family: inherit;
   font-size: 0.9rem;
   z-index: 2;
+  cursor: pointer;
+}
+
+.date-picker::-webkit-calendar-picker-indicator {
+  filter: invert(1);
   cursor: pointer;
 }
 
@@ -479,11 +484,20 @@ nav {
   flex-direction: column;
   gap: 0.3rem;
 }
+.summary-item:not(.date-picker-item) {
+  height: 4.2rem;
+}
+.summary-item:not(.date-picker-item) span {
+  margin-top: auto;
+}
 .summary-item label {
   font-size: 0.8rem;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1px;
+  min-height: 2.2rem;
+  display: flex;
+  align-items: flex-end;
 }
 .summary-item span {
   font-size: 1.5rem;
