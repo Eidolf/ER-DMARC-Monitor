@@ -540,6 +540,27 @@ function Dashboard() {
                                   ))}
                                 </div>
                               ) : <p>No DMARC record found at _dmarc.{dnsModal.domainName}</p>}
+
+                              {dnsDetails.dmarc.external_destinations && dnsDetails.dmarc.external_destinations.length > 0 && (
+                                <div style={{marginTop: '1.5rem'}}>
+                                  <h4 style={{fontSize: '1rem', fontWeight: 600}}>External Report Destinations Authorization</h4>
+                                  <div style={{display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '0.5rem'}}>
+                                    {dnsDetails.dmarc.external_destinations.map((d: any, idx: number) => (
+                                      <div key={idx} className={`guidance-box ${d.is_authorized ? 'legit' : 'suspicious'}`} style={{padding: '1rem', borderLeft: d.is_authorized ? '4px solid #10b981' : '4px solid #ef4444'}}>
+                                        <p style={{fontWeight: 600, color: d.is_authorized ? '#10b981' : '#ef4444'}}>
+                                          {d.is_authorized ? "✓ Authorized" : "✗ Verification Required"}
+                                        </p>
+                                        <p style={{fontSize: '0.9rem', marginTop: '0.2rem', color: 'var(--text-primary)'}}>{d.message}</p>
+                                        {!d.is_authorized && (
+                                          <div style={{marginTop: '0.6rem', fontSize: '0.85rem', background: 'rgba(0,0,0,0.2)', padding: '0.5rem', borderRadius: '4px'}}>
+                                            <p><strong>Required Action:</strong> Publish a TXT record at <code>{d.required_record}</code> with the value <code>v=DMARC1</code> to authorize report collection.</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </>
                           )}
                           {dnsModal.type === 'dkim' && (
@@ -547,11 +568,22 @@ function Dashboard() {
                               <p><strong>DKIM Status (Heuristic):</strong> {dnsDetails.dkim.status}</p>
                               <p className="hint-text">Note: This is based on a check of common selectors ({dnsDetails.dkim.checked_selectors.join(', ')}).</p>
                               {dnsDetails.dkim.found_selectors.length > 0 ? (
-                                <div className="dkim-results" style={{marginTop: '1rem'}}>
+                                <div className="dkim-results" style={{marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem'}}>
                                   {dnsDetails.dkim.found_selectors.map((s: any, i: number) => (
-                                    <div key={i} className="dkim-entry">
-                                      <p><strong>Selector:</strong> {s.selector}</p>
-                                      <code className="dns-record">{s.record}</code>
+                                    <div key={i} className="dkim-entry" style={{border: s.is_revoked ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-glass)', borderRadius: '8px', padding: '1rem', background: 'rgba(255,255,255,0.01)'}}>
+                                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                                        <p><strong>Selector:</strong> <code>{s.selector}</code></p>
+                                        {s.is_revoked && <span className="status-tag status-fail" style={{fontSize: '0.75rem'}}>REVOKED</span>}
+                                      </div>
+                                      <code className="dns-record" style={{display: 'block', marginTop: '0.5rem', overflowX: 'auto', background: 'rgba(0,0,0,0.2)', padding: '0.6rem', borderRadius: '4px'}}>{s.record}</code>
+                                      {s.is_revoked && (
+                                        <div className="guidance-box suspicious" style={{marginTop: '0.8rem', padding: '0.8rem', borderLeft: '4px solid #ef4444', background: 'rgba(239, 68, 68, 0.05)'}}>
+                                          <p style={{fontWeight: 600, color: '#ef4444', fontSize: '0.85rem'}}>Warnung</p>
+                                          <p style={{fontSize: '0.85rem', color: 'var(--text-primary)'}}>DKIM record at "{s.selector}" appears to be revoked (empty public key). Messages signed with this selector will fail DKIM verification.</p>
+                                          <p style={{fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.5rem'}}>Empfehlung</p>
+                                          <p style={{fontSize: '0.85rem', color: 'var(--text-primary)'}}>Re-publish the DKIM public key if this selector is still in use, or remove the DNS record if it has been retired.</p>
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
                                 </div>
