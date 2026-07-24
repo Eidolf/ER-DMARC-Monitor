@@ -27,9 +27,23 @@ else
 
   if command -v asciidoctor >/dev/null 2>&1; then
     echo "Building HTML with asciidoctor..."
+    
+    # Check for asciidoctor-diagram plugin or Kroki integration with valid input probe
+    DIAGRAM_ARGS=()
+    if printf "= Test\n\n[plantuml]\n----\n@startuml\n@enduml\n----\n" | asciidoctor -r asciidoctor-diagram -o /dev/null - 2>/dev/null; then
+      echo "Using asciidoctor-diagram extension for PlantUML/Mermaid diagrams..."
+      DIAGRAM_ARGS+=("-r" "asciidoctor-diagram")
+    elif printf "= Test\n\n[plantuml]\n----\n@startuml\n@enduml\n----\n" | asciidoctor -r asciidoctor-kroki -o /dev/null - 2>/dev/null; then
+      echo "Using asciidoctor-kroki extension..."
+      DIAGRAM_ARGS+=("-r" "asciidoctor-kroki" "-a" "kroki-server-url=https://kroki.io")
+    else
+      echo "No local diagram gem found. Enabling Kroki extension attributes..."
+      DIAGRAM_ARGS+=("-r" "asciidoctor-kroki" "-a" "kroki-server-url=https://kroki.io")
+    fi
+
     for adoc_file in docs/arc42/*.adoc; do
       if [[ -f "${adoc_file}" ]]; then
-        asciidoctor -D "${SITE_OUTPUT_DIR}" "${adoc_file}"
+        asciidoctor "${DIAGRAM_ARGS[@]}" -D "${SITE_OUTPUT_DIR}" "${adoc_file}"
       fi
     done
   else
@@ -74,7 +88,7 @@ EOF
     echo "Building PDF with asciidoctor-pdf..."
     for adoc_file in docs/arc42/*.adoc; do
       if [[ -f "${adoc_file}" ]]; then
-        asciidoctor-pdf -D "${SITE_OUTPUT_DIR}" "${adoc_file}" || true
+        asciidoctor-pdf "${DIAGRAM_ARGS[@]}" -D "${SITE_OUTPUT_DIR}" "${adoc_file}" || true
       fi
     done
   fi

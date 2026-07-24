@@ -95,6 +95,26 @@ The main system components include:
 * `api`: FastAPI application serving backend REST APIs (`api/main.py`).
 * `frontend`: React SPA dashboard (`frontend/src/App.tsx`).
 
+[plantuml, building-block-level1, svg]
+----
+@startuml
+package "ER-DMARC-Monitor" {
+  [SMTP Ingester] as smtp
+  [Redis Queue] as redis
+  [DMARC Parser] as parser
+  [PostgreSQL DB] as db
+  [FastAPI Backend] as api
+  [React Frontend] as ui
+
+  smtp -&gt; redis : Push Raw Email / Job Metadata
+  redis -&gt; parser : Fetch Processing Jobs
+  parser -&gt; db : Store Parsed DMARC Records
+  ui -&gt; api : Fetch Aggregated Analytics
+  api -&gt; db : Query Metrics &amp; Reports
+}
+@enduml
+----
+
 == Level 2: Component Breakdown
 * Data Models &amp; Database Schemas: SQLModel definitions in `api/models.py`.
 * Redis Job Ingestion &amp; Parser Handlers: Queue processor in `dmarc-parser/main.py` and receiver in `smtp-ingester/main.py`.
@@ -112,6 +132,29 @@ The main system components include:
 2. `smtp-ingester` extracts attachment, pushes payload job metadata to Redis queue (`smtp-ingester/main.py`).
 3. `dmarc-parser` fetches job from Redis queue, decompresses XML (`.zip`/`.gz`), parses records, and saves to PostgreSQL (`dmarc-parser/main.py`).
 4. User accesses web dashboard; `frontend` fetches aggregated metrics via REST API endpoints (`frontend/src/App.tsx`, `api/main.py`).
+
+[plantuml, runtime-ingestion-sequence, svg]
+----
+@startuml
+actor "External MTA" as mta
+participant "SMTP Ingester" as smtp
+database "Redis Queue" as redis
+participant "DMARC Parser" as parser
+database "PostgreSQL DB" as db
+participant "FastAPI REST API" as api
+actor "User Dashboard" as ui
+
+mta -&gt; smtp : Send DMARC Email Report (.zip / .gz)
+smtp -&gt; redis : Enqueue Report Job Payload
+redis -&gt; parser : Dispatch Job Payload
+parser -&gt; parser : Decompress &amp; Parse XML
+parser -&gt; db : Save Metrics &amp; Alignment Records
+ui -&gt; api : GET /api/v1/metrics
+api -&gt; db : SELECT aggregated stats
+db --&gt; api : Return result rows
+api --&gt; ui : 200 OK (JSON Metrics)
+@enduml
+----
 
 == Scenario 2: Authentication &amp; Report Export Flows
 * [INCOMPLETE / UNDOCUMENTED]: Sequence diagrams and flows for user authentication and report exports are currently not implemented in codebase.

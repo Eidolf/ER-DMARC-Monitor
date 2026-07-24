@@ -6,6 +6,29 @@
 3. `dmarc-parser` fetches job from Redis queue, decompresses XML (`.zip`/`.gz`), parses records, and saves to PostgreSQL (`dmarc-parser/main.py`).
 4. User accesses web dashboard; `frontend` fetches aggregated metrics via REST API endpoints (`frontend/src/App.tsx`, `api/main.py`).
 
+[plantuml, runtime-ingestion-sequence, svg]
+----
+@startuml
+actor "External MTA" as mta
+participant "SMTP Ingester" as smtp
+database "Redis Queue" as redis
+participant "DMARC Parser" as parser
+database "PostgreSQL DB" as db
+participant "FastAPI REST API" as api
+actor "User Dashboard" as ui
+
+mta -> smtp : Send DMARC Email Report (.zip / .gz)
+smtp -> redis : Enqueue Report Job Payload
+redis -> parser : Dispatch Job Payload
+parser -> parser : Decompress & Parse XML
+parser -> db : Save Metrics & Alignment Records
+ui -> api : GET /api/v1/metrics
+api -> db : SELECT aggregated stats
+db --> api : Return result rows
+api --> ui : 200 OK (JSON Metrics)
+@enduml
+----
+
 == Scenario 2: Authentication & Report Export Flows
 * [INCOMPLETE / UNDOCUMENTED]: Sequence diagrams and flows for user authentication and report exports are currently not implemented in codebase.
 
