@@ -72,6 +72,19 @@ jobs:
           chmod +x scripts/update-architecture-docs.sh
           chmod +x scripts/build-architecture-docs.sh
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install graphviz pillow || true
+          sudo apt-get update || true
+          sudo apt-get install -y graphviz || true
+
       - name: Detect documentation-relevant changes
         env:
           SINCE_REF: ${{ inputs.since_ref }}
@@ -102,10 +115,17 @@ jobs:
           path: docs/generated/site/
           retention-days: 30
 
+      - name: Upload generated image artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-images
+          path: docs/generated/images/
+          retention-days: 30
+
       - name: Check for repository changes
         id: git-check
         run: |
-          if [[ -n "$(git status --porcelain docs/arc42/)" ]]; then
+          if [[ -n "$(git status --porcelain docs/arc42/ docs/generated/images/)" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"

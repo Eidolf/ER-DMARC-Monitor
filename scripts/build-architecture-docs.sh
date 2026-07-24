@@ -4,10 +4,16 @@ set -euo pipefail
 SITE_OUTPUT_DIR="docs/generated/site"
 CACHE_DIR="docs/generated/cache"
 REPORTS_DIR="docs/generated/reports"
+IMAGES_OUTPUT_DIR="docs/generated/images"
 
-mkdir -p "${SITE_OUTPUT_DIR}" "${CACHE_DIR}" "${REPORTS_DIR}"
+mkdir -p "${SITE_OUTPUT_DIR}" "${CACHE_DIR}" "${REPORTS_DIR}" "${IMAGES_OUTPUT_DIR}"
 
 echo "=== Building arc42 Architecture Documentation ==="
+
+if command -v python3 >/dev/null 2>&1 && [[ -f "scripts/generate-docs-images.py" ]]; then
+  echo "Generating architecture & schema images via generate-docs-images.py..."
+  python3 scripts/generate-docs-images.py || echo "Warning: Image generation skipped or dependencies missing."
+fi
 
 # Check for docToolchain availability
 DOCTOOLCHAIN_CMD=""
