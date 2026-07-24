@@ -17,7 +17,7 @@ database "PostgreSQL DB" as db
 participant "FastAPI REST API" as api
 actor "User Dashboard" as ui
 
-mta -> smtp : Send DMARC Email Report (.zip / .xml)
+mta -> smtp : Send DMARC Email Report (.zip / .gz)
 smtp -> redis : Enqueue Report Job Payload
 redis -> parser : Dispatch Job Payload
 parser -> parser : Decompress & Parse XML
