@@ -1,0 +1,9 @@
+= 06. Runtime View
+
+== Scenario 1: DMARC Report Ingestion & Processing
+1. External MTA delivers DMARC report email to `smtp-ingester`.
+2. `smtp-ingester` extracts attachment, pushes payload metadata to Redis queue.
+3. `dmarc-parser` fetches job from Redis queue, decompresses XML, parses records, and saves to PostgreSQL.
+4. User accesses frontend dashboard; `frontend` fetches aggregated metrics from `api`.
+
+// TODO: REVIEW REQUIRED - Add sequence diagrams for authentication and report export flows.

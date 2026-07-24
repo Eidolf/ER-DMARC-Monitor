@@ -1,0 +1,14 @@
+= 05. Building Block View
+
+== Level 1: System Overview
+The main system components include:
+* `smtp-ingester`: Ingests incoming emails containing DMARC aggregate reports (`.zip`, `.xml`, `.gz`).
+* `dmarc-parser`: Parses XML reports and inserts structured records into PostgreSQL.
+* `api`: FastAPI application serving backend REST APIs (`api/main.py`).
+* `frontend`: Single-page web application (`frontend/src/`).
+
+== Level 2: Component Breakdown
+* Database models & schemas defined in `api/` and shared ORM definitions.
+* Background queue handlers in `dmarc-parser/`.
+
+// TODO: REVIEW REQUIRED - Update building block diagrams when components are added or refactored.

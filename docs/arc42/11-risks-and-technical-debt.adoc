@@ -1,0 +1,10 @@
+= 11. Risks and Technical Debt
+
+== Technical Risks
+* Large XML Attachments: Processing extremely large aggregate reports could exceed container memory limits if not streamed.
+* Malformed Email Reports: Handling non-standard DMARC XML schemas safely.
+
+== Technical Debt
+* Documentation Automation: AI updates must be validated manually by maintainers.
+
+// TODO: REVIEW REQUIRED - Track ongoing technical debt and mitigation steps.

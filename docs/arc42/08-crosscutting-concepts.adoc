@@ -1,0 +1,8 @@
+= 08. Crosscutting Concepts
+
+== Architecture & Domain Concepts
+* Logging & Diagnostics: Structured logs output to stderr across services.
+* Database Session Management: FastAPI dependency-injected sessions (`Depends(get_session)`).
+* Data Processing: Resilient XML parsing supporting multiple archive formats (`.zip`, `.xml`, `.gz`).
+
+// TODO: REVIEW REQUIRED - Document security, authentication, and secret management patterns.
