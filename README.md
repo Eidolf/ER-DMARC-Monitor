@@ -95,10 +95,12 @@ volumes:
 ```
 
 ### 🔒 Security Setup (Production Readiness)
-Before starting this stack in a live or exposed environment, you **must** update the variables in your configuration:
+The default Docker Compose configuration contains hardcoded credentials and secrets intended strictly for **local development only**. Do not run this default setup unchanged in production environments.
+
+Before starting this stack in a live or exposed environment, you **must** update the variables in your configuration and provision production credentials:
 
 1. **Database Passwords:**
-   Change `POSTGRES_PASSWORD=secure_dmarc_pass` in the `postgres`, `api`, and `dmarc-parser` services to a strong, generated password.
+   Change `POSTGRES_PASSWORD=secure_dmarc_pass` in `postgres` to a strong, generated password. Ensure both `api` and `dmarc-parser` services reference this single shared secret source in their `DB_DSN` settings (e.g. via environment variable injection). If the database password contains special characters, you MUST URL-encode the password in the connection URI (`DB_DSN`).
 2. **API Authentication JWT:**
    Change `JWT_SECRET=change_me_in_production` under the `api` service. This is used to sign authentication tokens for the dashboard.
 3. **Ingestion Restrictions:**
@@ -107,19 +109,21 @@ Before starting this stack in a live or exposed environment, you **must** update
    Ensure ports `13060` (Frontend) and `13061` (API) are behind a secure reverse proxy terminating SSL (like Nginx/Traefik). Port `13062` (Mapped to SMTP) should be forwarded from port `25` on your firewall.
 
 ## Startup
-To build and launch the ecosystem securely:
+To build and launch the ecosystem for local development:
 ```bash
 docker compose up -d --build
 ```
 
-### 🔑 Default Credentials (First Start / Local Development)
-After starting the ecosystem, you can log in to the dashboard at `http://localhost:13060` with the following default administrator credentials:
+> **Note:** Production deployment requires replacing all default secrets and provisioning administrator credentials before startup.
+
+### 🔑 Default Credentials (First Start / Local Development Only)
+In local development mode, you can log in to the dashboard at `http://localhost:13060` with the following default administrator credentials:
 * **Username**: `admin`
 * **Password**: `admin123`
 * **Email**: `admin@local`
 
 > [!WARNING]
-> Change the default administrator password immediately after logging in for the first time via the user profile settings.
+> These credentials are provided for local testing only. Production environments must provision custom administrator credentials prior to system startup and immediately rotate any default accounts.
 
 ## Architecture Documentation
 
