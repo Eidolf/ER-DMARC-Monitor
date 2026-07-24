@@ -7,6 +7,26 @@ The main system components include:
 * `api`: FastAPI application serving backend REST APIs (`api/main.py`).
 * `frontend`: React SPA dashboard (`frontend/src/App.tsx`).
 
+[plantuml, building-block-level1, svg]
+----
+@startuml
+package "ER-DMARC-Monitor" {
+  [SMTP Ingester] as smtp
+  [Redis Queue] as redis
+  [DMARC Parser] as parser
+  [PostgreSQL DB] as db
+  [FastAPI Backend] as api
+  [React Frontend] as ui
+
+  smtp -> redis : Push Raw Email / Job Metadata
+  redis -> parser : Fetch Processing Jobs
+  parser -> db : Store Parsed DMARC Records
+  ui -> api : Fetch Aggregated Analytics
+  api -> db : Query Metrics & Reports
+}
+@enduml
+----
+
 == Level 2: Component Breakdown
 * Data Models & Database Schemas: SQLModel definitions in `api/models.py`.
 * Redis Job Ingestion & Parser Handlers: Queue processor in `dmarc-parser/main.py` and receiver in `smtp-ingester/main.py`.

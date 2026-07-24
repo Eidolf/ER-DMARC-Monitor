@@ -27,9 +27,20 @@ else
 
   if command -v asciidoctor >/dev/null 2>&1; then
     echo "Building HTML with asciidoctor..."
+    
+    # Check for asciidoctor-diagram plugin or Kroki integration
+    DIAGRAM_ARGS=()
+    if asciidoctor -r asciidoctor-diagram -e 2>/dev/null; then
+      echo "Using asciidoctor-diagram extension for PlantUML/Mermaid diagrams..."
+      DIAGRAM_ARGS+=("-r" "asciidoctor-diagram")
+    else
+      echo "asciidoctor-diagram gem not found locally. Enabling inline PlantUML / Kroki server rendering..."
+      DIAGRAM_ARGS+=("-a" "kroki-server-url=https://kroki.io")
+    fi
+
     for adoc_file in docs/arc42/*.adoc; do
       if [[ -f "${adoc_file}" ]]; then
-        asciidoctor -D "${SITE_OUTPUT_DIR}" "${adoc_file}"
+        asciidoctor "${DIAGRAM_ARGS[@]}" -D "${SITE_OUTPUT_DIR}" "${adoc_file}" || asciidoctor -D "${SITE_OUTPUT_DIR}" "${adoc_file}"
       fi
     done
   else
