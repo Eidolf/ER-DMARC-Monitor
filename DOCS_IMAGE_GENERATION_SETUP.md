@@ -11,21 +11,14 @@ Dieses System generiert **dynamisch** Dokumentationsbilder aus Ihrer `project_ma
 
 ## 📋 Setup-Schritte
 
-### Schritt 1: Workflow-Datei in den richtigen Ordner verschieben
-
-Die Workflow-Datei befindet sich aktuell unter `workflows/generate-docs-images.yml` und muss nach `.github/workflows/generate-docs-images.yml` verschoben werden:
-
-```bash
-# Im lokalen Repository
-mkdir -p .github/workflows
-mv workflows/generate-docs-images.yml .github/workflows/generate-docs-images.yml
-rm -rf workflows  # Optional: leerer Ordner löschen
-
-# Committen und pushen
-git add .github/workflows/generate-docs-images.yml
-git commit -m "Move workflow to correct .github/workflows directory"
-git push origin feature/add-docs-image-workflow
-```
+### Schritt 1: Workflow-Datei überprüfen
+ 
+ Die Workflow-Datei befindet sich unter `.github/workflows/generate-docs-images.yml`.
+ 
+ ```bash
+# Prüfen, ob die Workflow-Datei existiert
+test -f .github/workflows/generate-docs-images.yml && echo "Workflow file exists"
+ ```
 
 ### Schritt 2: Abhängigkeiten installieren (lokal testen)
 
@@ -137,7 +130,6 @@ Visuelle Badge mit Projekt-Informationen:
 paths:
   - 'project_manifest.json'         # Wenn Manifest ändert
   - 'scripts/generate-docs-images.py'  # Wenn Script ändert
-  - '.github/workflows/generate-docs-images.yml'  # Wenn Workflow ändert
 ```
 
 ### Workflow-Schritte:
@@ -147,7 +139,7 @@ paths:
 4. ✅ Systempaket graphviz installieren
 5. ✅ `generate-docs-images.py` ausführen
 6. ✅ Auf Änderungen prüfen
-7. ✅ Änderungen committen (nur auf `main` bei `push`)
+7. ✅ Änderungen committen (nur bei `push` auf `main`)
 8. ✅ Artefakte hochladen (30 Tage Aufbewahrung)
 9. ✅ GitHub Step Summary generieren
 
@@ -199,9 +191,11 @@ Siehe: [API Endpoints Documentation](docs/generated/images/api-endpoints.txt)
 
 ## 🔄 Automatische Aktualisierungen
 
-Der Workflow committet automatisch auf dem `main` Branch:
+Der Workflow committet Änderungen ausschließlich bei `push`-Events auf dem `main` Branch:
 - Commit-Nachricht: `🔄 Update auto-generated documentation images [skip ci]`
 - Mit `[skip ci]` um endlose Workflow-Loops zu vermeiden
+
+Manuell ausgelöste Läufe (`workflow_dispatch`) sowie Pull-Requests committen keine Änderungen direkt, sondern laden die generierten Bilder als Artefakte hoch.
 
 ## 📦 Artefakte
 

@@ -13,6 +13,7 @@ on:
       - main
     paths:
       - 'project_manifest.json'
+      - 'scripts/generate-docs-images.py'
   workflow_dispatch:
     inputs:
       force_regenerate:
@@ -21,21 +22,25 @@ on:
         default: false
         type: boolean
 
+concurrency:
+  group: generate-docs-images-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   generate-images:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -58,7 +63,7 @@ jobs:
       - name: Check for changes
         id: changes
         run: |
-          if git diff --quiet docs/generated/images/; then
+          if [ -z "$(git status --porcelain docs/generated/images/)" ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
             echo "No changes detected in generated images"
           else
@@ -66,6 +71,13 @@ jobs:
             echo "Changes detected in generated images"
             git diff --stat docs/generated/images/ || true
           fi
+
+      - name: Publish changes (push to main branch only)
+        if: steps.changes.outputs.changed == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
 
       - name: Commit and push changes (if on main branch and changes exist)
         if: steps.changes.outputs.changed == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
