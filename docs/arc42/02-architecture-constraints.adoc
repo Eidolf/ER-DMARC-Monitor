@@ -1,0 +1,12 @@
+= 02. Architecture Constraints
+
+== Technical Constraints
+* Language / Environment: Python 3.10+ for backend services (`api/`, `dmarc-parser/`, `smtp-ingester/`), TypeScript/React/Vite for frontend (`frontend/`).
+* Containerization: Docker and Docker Compose (`docker-compose.yml`).
+* Data Stores: PostgreSQL database and Redis message queue / cache.
+
+== Organizational Constraints
+* Git Repository: Versioned under single monorepo layout.
+* Open Source Standards: Standard license and documentation layout.
+
+// TODO: REVIEW REQUIRED - Update architecture constraints when runtime or deployment toolchains change.

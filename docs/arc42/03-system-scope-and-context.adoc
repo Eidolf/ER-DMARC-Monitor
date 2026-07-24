@@ -1,0 +1,11 @@
+= 03. System Scope and Context
+
+== Business Context
+The system interfaces with external Mail Transfer Agents (MTAs) sending DMARC aggregate reports via email.
+
+== Technical Context
+* Inbound Interfaces: SMTP Server (`smtp-ingester/main.py`) accepting incoming report emails.
+* Processing Queue: Redis queue transferring raw/extracted payload to parser (`dmarc-parser/main.py`).
+* Data API: FastAPI backend (`api/main.py`) exposing parsed metrics to web dashboard (`frontend/`).
+
+// TODO: REVIEW REQUIRED - Verify technical context endpoints and protocols against production network architecture.

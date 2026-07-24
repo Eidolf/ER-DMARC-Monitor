@@ -1,0 +1,137 @@
+name: Architecture Documentation (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      since_ref:
+        description: "Optional: Git ref/tag/commit used as diff base. If empty, use previous git tag."
+        required: false
+        type: string
+      target_ref:
+        description: "Optional: Git ref/tag/commit to document. If empty, use selected branch/ref."
+        required: false
+        type: string
+      use_ai:
+        description: "Run AI-assisted documentation update"
+        required: true
+        default: false
+        type: boolean
+      create_pull_request:
+        description: "Create pull request with documentation changes"
+        required: true
+        default: true
+        type: boolean
+      force_full_scan:
+        description: "Ignore diff and scan repository documentation-relevant files"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  build-and-update-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate manual trigger inputs
+        env:
+          INPUT_SINCE_REF: ${{ inputs.since_ref }}
+          INPUT_TARGET_REF: ${{ inputs.target_ref }}
+          INPUT_USE_AI: ${{ inputs.use_ai }}
+          INPUT_CREATE_PULL_REQUEST: ${{ inputs.create_pull_request }}
+          INPUT_FORCE_FULL_SCAN: ${{ inputs.force_full_scan }}
+        run: |
+          printf "=== Workflow Triggered Manually ===\n"
+          printf "Actor: %s\n" "${GITHUB_ACTOR}"
+          printf "since_ref: '%s'\n" "${INPUT_SINCE_REF}"
+          printf "target_ref: '%s'\n" "${INPUT_TARGET_REF}"
+          printf "use_ai: '%s'\n" "${INPUT_USE_AI}"
+          printf "create_pull_request: '%s'\n" "${INPUT_CREATE_PULL_REQUEST}"
+          printf "force_full_scan: '%s'\n" "${INPUT_FORCE_FULL_SCAN}"
+
+      - name: Prepare documentation folder structure
+        run: |
+          mkdir -p docs/arc42
+          mkdir -p docs/diagrams
+          mkdir -p docs/generated/cache
+          mkdir -p docs/generated/reports
+          mkdir -p docs/generated/site
+
+      - name: Make scripts executable
+        run: |
+          chmod +x scripts/detect-doc-relevant-changes.sh
+          chmod +x scripts/update-architecture-docs.sh
+          chmod +x scripts/build-architecture-docs.sh
+
+      - name: Detect documentation-relevant changes
+        env:
+          SINCE_REF: ${{ inputs.since_ref }}
+          TARGET_REF: ${{ inputs.target_ref }}
+          FORCE_FULL_SCAN: ${{ inputs.force_full_scan }}
+        run: |
+          ./scripts/detect-doc-relevant-changes.sh
+
+      - name: Perform AI-assisted documentation update
+        if: ${{ inputs.use_ai }}
+        env:
+          SINCE_REF: ${{ inputs.since_ref }}
+          TARGET_REF: ${{ inputs.target_ref }}
+          FORCE_FULL_SCAN: ${{ inputs.force_full_scan }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          ./scripts/update-architecture-docs.sh
+
+      - name: Build architecture documentation
+        run: |
+          ./scripts/build-architecture-docs.sh
+
+      - name: Upload HTML/PDF artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-docs-site
+          path: docs/generated/site/
+          retention-days: 30
+
+      - name: Check for repository changes
+        id: git-check
+        run: |
+          if [[ -n "$(git status --porcelain docs/arc42/)" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Pull Request with documentation changes
+        if: ${{ inputs.create_pull_request && steps.git-check.outputs.changed == 'true' }}
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "docs: update architecture documentation"
+          branch: "docs/update-architecture-docs-${{ github.run_id }}"
+          title: "docs: update architecture documentation"
+          body: |
+            ## Architecture Documentation Update
+            - **Triggered manually by:** `@${{ github.actor }}`
+            - **Base Ref (`since_ref`):** `${{ inputs.since_ref || 'Default Tag/Fallback' }}`
+            - **Target Ref (`target_ref`):** `${{ inputs.target_ref || 'HEAD' }}`
+            - **AI Update (`use_ai`):** `${{ inputs.use_ai }}`
+            - **Full Scan (`force_full_scan`):** `${{ inputs.force_full_scan }}`
+
+            ### Relevant Files Analyzed
+            ```
+            $(cat docs/generated/reports/doc-relevant-files.txt 2>/dev/null || echo "None")
+            ```
+
+            > **Note:** All AI-generated content must be manually reviewed before merging. Look out for `TODO: REVIEW REQUIRED` tags.
+          labels: |
+            documentation
+            automated-pr

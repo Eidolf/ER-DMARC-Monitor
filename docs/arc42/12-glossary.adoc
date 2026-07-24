@@ -1,0 +1,10 @@
+= 12. Glossary
+
+== Domain Terms
+* DMARC: Domain-based Message Authentication, Reporting, and Conformance.
+* SPF: Sender Policy Framework.
+* DKIM: DomainKeys Identified Mail.
+* MTA: Mail Transfer Agent.
+* docToolchain: Architecture documentation toolchain for AsciiDoc compilation.
+
+// TODO: REVIEW REQUIRED - Add further domain terms as required.

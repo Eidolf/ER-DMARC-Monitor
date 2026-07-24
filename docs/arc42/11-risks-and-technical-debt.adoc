@@ -1,0 +1,21 @@
+= 11. Risks and Technical Debt
+
+== Technical Risks
+* Large XML Attachments: Processing extremely large aggregate reports could exceed container memory limits if not streamed.
+  - Impact: Medium (Container OOM kill)
+  - Likelihood: Low
+  - Mitigation: Implement chunked streaming for decompressed XML payload parsing in `dmarc-parser/main.py`.
+  - Detection: Monitor container memory utilization in Docker metrics.
+  - Accountable Owner: Backend Lead (`@dev-team`)
+
+* Malformed Email Reports: Handling non-standard DMARC XML schemas safely.
+  - Impact: Low (Parser task failure)
+  - Likelihood: Medium
+  - Mitigation: Wrap XML parsing in schema validation and catch parse exceptions explicitly in `dmarc-parser/main.py`.
+  - Detection: Error log entries recorded in stderr.
+  - Accountable Owner: Parser Maintainer (`@dev-team`)
+
+== Technical Debt
+* Documentation Automation: AI updates must be validated manually by maintainers.
+
+// TODO: REVIEW REQUIRED - Track ongoing technical debt and mitigation steps.

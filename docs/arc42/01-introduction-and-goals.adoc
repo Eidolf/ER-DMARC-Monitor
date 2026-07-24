@@ -1,0 +1,18 @@
+= 01. Introduction and Goals
+
+== Requirements Overview
+The ER-DMARC-Monitor system ingests, parses, and visualizes DMARC (Domain-based Message Authentication, Reporting, and Conformance) aggregate reports.
+
+== Quality Goals
+* Reliability: Reliable processing of incoming DMARC XML reports via SMTP.
+* Maintainability: Modular microservices architecture (API, SMTP Ingester, Parser).
+* Usability: Clear dashboard interface for monitoring DMARC report metrics and domain health.
+
+== Stakeholders
+[options="header",cols="1,2,2"]
+|===
+| Role | Contact | Expectation
+| System Administrators | Dev Team | Reliable ingestion and clear visualization of DMARC reports.
+|===
+
+// TODO: REVIEW REQUIRED - Verify initial requirements and goals against current implementation.

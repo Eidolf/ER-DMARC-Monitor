@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ER-DMARC-Monitor Architecture Documentation (arc42)</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 2rem; max-width: 900px; margin: 0 auto; color: #1a202c; background-color: #f7fafc; }
+    h1 { color: #2b6cb0; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
+    h2 { color: #2d3748; margin-top: 1.5rem; }
+    pre { background: #edf2f7; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+    .chapter { background: white; padding: 1.5rem; margin-bottom: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .todo { background: #fffaf0; border-left: 4px solid #dd6b20; padding: 0.5rem 1rem; margin: 0.5rem 0; font-weight: bold; color: #9c4221; }
+  </style>
+</head>
+<body>
+  <h1>ER-DMARC-Monitor Architecture Documentation (arc42)</h1>
+  <div class="chapter">
+    <h2>01-introduction-and-goals.adoc</h2>
+    <pre>
+= 01. Introduction and Goals
+
+== Requirements Overview
+The ER-DMARC-Monitor system ingests, parses, and visualizes DMARC (Domain-based Message Authentication, Reporting, and Conformance) aggregate reports.
+
+== Quality Goals
+* Reliability: Reliable processing of incoming DMARC XML reports via SMTP.
+* Maintainability: Modular microservices architecture (API, SMTP Ingester, Parser).
+* Usability: Clear dashboard interface for monitoring DMARC report metrics and domain health.
+
+== Stakeholders
+[options="header",cols="1,2,2"]
+|===
+| Role | Contact | Expectation
+| System Administrators | Dev Team | Reliable ingestion and clear visualization of DMARC reports.
+|===
+
+// TODO: REVIEW REQUIRED - Verify initial requirements and goals against current implementation.
+    </pre>
+  </div>
+  <div class="chapter">
+    <h2>02-architecture-constraints.adoc</h2>
+    <pre>
+= 02. Architecture Constraints
+
+== Technical Constraints
+* Language / Environment: Python 3.10+ for backend services (`api/`, `dmarc-parser/`, `smtp-ingester/`), TypeScript/React/Vite for frontend (`frontend/`).
+* Containerization: Docker and Docker Compose (`docker-compose.yml`).
+* Data Stores: PostgreSQL database and Redis message queue / cache.
+
+== Organizational Constraints
+* Git Repository: Versioned under single monorepo layout.
+* Open Source Standards: Standard license and documentation layout.
+
+// TODO: REVIEW REQUIRED - Update architecture constraints when runtime or deployment toolchains change.
+    </pre>
+  </div>
+  <div class="chapter">
+    <h2>03-system-scope-and-context.adoc</h2>
+    <pre>
+= 03. System Scope and Context
+
+== Business Context
+The system interfaces with external Mail Transfer Agents (MTAs) sending DMARC aggregate reports via email.
+
+== Technical Context
+* Inbound Interfaces: SMTP Server (`smtp-ingester/main.py`) accepting incoming report emails.
+* Processing Queue: Redis queue transferring raw/extracted payload to parser (`dmarc-parser/main.py`).
+* Data API: FastAPI backend (`api/main.py`) exposing parsed metrics to web dashboard (`frontend/`).
+
+// TODO: REVIEW REQUIRED - Verify technical context endpoints and protocols against production network architecture.
+    </pre>
+  </div>
+  <div class="chapter">
+    <h2>04-solution-strategy.adoc</h2>
+    <pre>
+= 04. Solution Strategy
+
+== Fundamental Decisions
+* Decoupled Ingestion: Separate SMTP ingestion from XML parsing using Redis queues to handle spikes in email delivery.
+* Asynchronous Parsing: `dmarc-parser` processes queued reports independently from API response cycles.
+* Modern Web Interface: React SPA built with Vite for fast client rendering and analytics dashboards.
+
+// TODO: REVIEW REQUIRED - Document additional architectural patterns as the project expands.
+    </pre>
+  </div>
+  <div class="chapter">
+    <h2>05-building-block-view.adoc</h2>
+    <pre>
+= 05. Building Block View
+
+== Level 1: System Overview
+The main system components include:
+* `smtp-ingester`: Ingests incoming emails containing DMARC aggregate reports (`smtp-ingester/main.py`).
+* `dmarc-parser`: Parses XML reports and inserts structured records into PostgreSQL (`dmarc-parser/main.py`).
+* `api`: FastAPI application serving backend REST APIs (`api/main.py`).
+* `frontend`: React SPA dashboard (`frontend/src/App.tsx`).
+
+== Level 2: Component Breakdown
+* Data Models &amp; Database Schemas: SQLModel definitions in `api/models.py`.
+* Redis Job Ingestion &amp; Parser Handlers: Queue processor in `dmarc-parser/main.py` and receiver in `smtp-ingester/main.py`.
+
+// TODO: REVIEW REQUIRED - Update building block diagrams when additional component sub-modules are introduced.
+    </pre>
+  </div>
+  <div class="chapter">
+    <h2>06-runtime-view.adoc</h2>
+    <pre>
+= 06. Runtime View
+
+== Scenario 1: DMARC Report Ingestion &amp; Processing
+1. External MTA delivers DMARC report email to `smtp-ingester` (`smtp-ingester/main.py`).
+2. `smtp-ingester` extracts attachment, pushes payload job metadata to Redis queue (`smtp-ingester/main.py`).
+3. `dmarc-parser` fetches job from Redis queue, decompresses XML (`.zip`/`.gz`), parses records, and saves to PostgreSQL (`dmarc-parser/main.py`).
+4. User accesses web dashboard; `frontend` fetches aggregated metrics via REST API endpoints (`frontend/src/App.tsx`, `api/main.py`).
+
+== Scenario 2: Authentication &amp; Report Export Flows
+* [INCOMPLETE / UNDOCUMENTED]: Sequence diagrams and flows for user authentication and report exports are currently not implemented in codebase.
+
+// TODO: REVIEW REQUIRED - Document authentication and report export runtime flows when implemented.
+    </pre>
+  </div>
+  <div class="chapter">
+    <h2>07-deployment-view.adoc</h2>
+    <pre>
+= 07. Deployment View
+
+== Local / Development Deployment
+* Container Orchestration: Local multi-container development environment defined in `docker-compose.yml`.
+* Services:
+  - `api`: FastAPI application (`api/Dockerfile`, `docker-compose.yml`)
+  - `frontend`: React SPA web server (`frontend/Dockerfile`, `docker-compose.yml`)
+  - `smtp-ingester`: SMTP mail receiver (`smtp-ingester/Dockerfile`, `docker-compose.yml`)
+  - `dmarc-parser`: Queue worker (`dmarc-parser/Dockerfile`, `docker-compose.yml`)
+  - `db`: PostgreSQL database container
+  - `redis`: Redis queue broker container
+
+== Production Deployment Topology
+* [INCOMPLETE / UNDOCUMENTED]: Production Kubernetes / Helm chart deployment topology manifests do not exist in repository.
+
+// TODO: REVIEW REQUIRED - Document Production Kubernetes or Helm deployment topology when manifests are added.
+    </pre>
+  </div>
+  <div class="chapter">
+    <h2>08-crosscutting-concepts.adoc</h2>
+    <pre>
+= 08. Crosscutting Concepts
+
+== Architecture &amp; Domain Concepts
+* Logging &amp; Diagnostics: Standard error logging with traceback output (`dmarc-parser/main.py`, `smtp-ingester/main.py`, `api/main.py`).
+* Database Session Management: SQLModel session injection via `get_session` helper (`api/main.py`).
+* Data Processing: XML extraction supporting `.zip` and `.gz` report archives (`dmarc-parser/main.py`).
+
+== Security &amp; Secret Management
+* [INCOMPLETE / UNDOCUMENTED]: User authentication mechanisms and centralized secret management patterns are currently not implemented in codebase. Environment variables are loaded via `.env` (`.env.example`).
+
+// TODO: REVIEW REQUIRED - Document security, authentication, and key rotation mechanisms when implemented.
+    </pre>
+  </div>
+  <div class="chapter">
+    <h2>09-architecture-decisions.adoc</h2>
+    <pre>
+= 09. Architecture Decisions
+
+== Architecture Decision Records (ADRs)
+* ADR 001: Use docToolchain / Asciidoctor for Docs-as-Code pipeline (`scripts/build-architecture-docs.sh`).
+* ADR 002: Manual trigger strategy (`workflow_dispatch`) for GitHub Actions documentation pipeline to eliminate token waste (`.github/workflows/architecture-docs-manual.yml`).
+
+// TODO: REVIEW REQUIRED - Record future architectural decision records here when major design choices are made.
+    </pre>
+  </div>
+  <div class="chapter">
+    <h2>10-quality-requirements.adoc</h2>
+    <pre>
+= 10. Quality Requirements
+
+== Quality Tree &amp; Scenarios [INCOMPLETE / WORK IN PROGRESS]
+* Maintainability Scenario: Modular microservices layout (`api/`, `dmarc-parser/`, `smtp-ingester/`, `frontend/`). Threshold: 100% type-checking compliance (`npx tsc --noEmit`).
+* Performance Scenario: Async report processing via Redis queue (`dmarc-parser/main.py`). Target throughput: Process 100 XML reports/min.
+* Accuracy Scenario: Precise XML validation &amp; DNS verification (`api/dns_utils.py`). Target accuracy: 100% compliance with RFC 7489 / DMARC tags parsing.
+
+// TODO: REVIEW REQUIRED - Complete formalized quality scenarios matrix with benchmarked latency and throughput SLAs.
+    </pre>
+  </div>
+  <div class="chapter">
+    <h2>11-risks-and-technical-debt.adoc</h2>
+    <pre>
+= 11. Risks and Technical Debt
+
+== Technical Risks
+* Large XML Attachments: Processing extremely large aggregate reports could exceed container memory limits if not streamed.
+  - Impact: Medium (Container OOM kill)
+  - Likelihood: Low
+  - Mitigation: Implement chunked streaming for decompressed XML payload parsing in `dmarc-parser/main.py`.
+  - Detection: Monitor container memory utilization in Docker metrics.
+  - Accountable Owner: Backend Lead (`@dev-team`)
+
+* Malformed Email Reports: Handling non-standard DMARC XML schemas safely.
+  - Impact: Low (Parser task failure)
+  - Likelihood: Medium
+  - Mitigation: Wrap XML parsing in schema validation and catch parse exceptions explicitly in `dmarc-parser/main.py`.
+  - Detection: Error log entries recorded in stderr.
+  - Accountable Owner: Parser Maintainer (`@dev-team`)
+
+== Technical Debt
+* Documentation Automation: AI updates must be validated manually by maintainers.
+
+// TODO: REVIEW REQUIRED - Track ongoing technical debt and mitigation steps.
+    </pre>
+  </div>
+  <div class="chapter">
+    <h2>12-glossary.adoc</h2>
+    <pre>
+= 12. Glossary
+
+== Domain Terms
+* DMARC: Domain-based Message Authentication, Reporting, and Conformance.
+* SPF: Sender Policy Framework.
+* DKIM: DomainKeys Identified Mail.
+* MTA: Mail Transfer Agent.
+* docToolchain: Architecture documentation toolchain for AsciiDoc compilation.
+
+// TODO: REVIEW REQUIRED - Add further domain terms as required.
+    </pre>
+  </div>
+</body>
+</html>

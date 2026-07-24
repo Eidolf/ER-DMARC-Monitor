@@ -157,6 +157,11 @@
           "description": ""
         },
         {
+          "name": "check_external_dmarc_authorization",
+          "signature": "def check_external_dmarc_authorization(source_domain, dmarc_record)",
+          "description": ""
+        },
+        {
           "name": "get_dmarc_record",
           "signature": "def get_dmarc_record(domain)",
           "description": ""

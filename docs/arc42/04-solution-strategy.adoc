@@ -1,0 +1,8 @@
+= 04. Solution Strategy
+
+== Fundamental Decisions
+* Decoupled Ingestion: Separate SMTP ingestion from XML parsing using Redis queues to handle spikes in email delivery.
+* Asynchronous Parsing: `dmarc-parser` processes queued reports independently from API response cycles.
+* Modern Web Interface: React SPA built with Vite for fast client rendering and analytics dashboards.
+
+// TODO: REVIEW REQUIRED - Document additional architectural patterns as the project expands.

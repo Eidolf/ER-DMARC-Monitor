@@ -1,0 +1,12 @@
+= 06. Runtime View
+
+== Scenario 1: DMARC Report Ingestion & Processing
+1. External MTA delivers DMARC report email to `smtp-ingester` (`smtp-ingester/main.py`).
+2. `smtp-ingester` extracts attachment, pushes payload job metadata to Redis queue (`smtp-ingester/main.py`).
+3. `dmarc-parser` fetches job from Redis queue, decompresses XML (`.zip`/`.gz`), parses records, and saves to PostgreSQL (`dmarc-parser/main.py`).
+4. User accesses web dashboard; `frontend` fetches aggregated metrics via REST API endpoints (`frontend/src/App.tsx`, `api/main.py`).
+
+== Scenario 2: Authentication & Report Export Flows
+* [INCOMPLETE / UNDOCUMENTED]: Sequence diagrams and flows for user authentication and report exports are currently not implemented in codebase.
+
+// TODO: REVIEW REQUIRED - Document authentication and report export runtime flows when implemented.

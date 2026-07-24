@@ -1,0 +1,14 @@
+= 05. Building Block View
+
+== Level 1: System Overview
+The main system components include:
+* `smtp-ingester`: Ingests incoming emails containing DMARC aggregate reports (`smtp-ingester/main.py`).
+* `dmarc-parser`: Parses XML reports and inserts structured records into PostgreSQL (`dmarc-parser/main.py`).
+* `api`: FastAPI application serving backend REST APIs (`api/main.py`).
+* `frontend`: React SPA dashboard (`frontend/src/App.tsx`).
+
+== Level 2: Component Breakdown
+* Data Models & Database Schemas: SQLModel definitions in `api/models.py`.
+* Redis Job Ingestion & Parser Handlers: Queue processor in `dmarc-parser/main.py` and receiver in `smtp-ingester/main.py`.
+
+// TODO: REVIEW REQUIRED - Update building block diagrams when additional component sub-modules are introduced.
