@@ -30,14 +30,13 @@ jobs:
   generate-images:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -71,13 +70,6 @@ jobs:
             echo "Changes detected in generated images"
             git diff --stat docs/generated/images/ || true
           fi
-
-      - name: Publish changes (push to main branch only)
-        if: steps.changes.outputs.changed == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          persist-credentials: true
 
       - name: Commit and push changes (if on main branch and changes exist)
         if: steps.changes.outputs.changed == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'push'
