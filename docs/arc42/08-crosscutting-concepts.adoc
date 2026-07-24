@@ -1,8 +1,11 @@
 = 08. Crosscutting Concepts
 
 == Architecture & Domain Concepts
-* Logging & Diagnostics: Structured logs output to stderr across services.
-* Database Session Management: FastAPI dependency-injected sessions (`Depends(get_session)`).
-* Data Processing: Resilient XML parsing supporting multiple archive formats (`.zip`, `.xml`, `.gz`).
+* Logging & Diagnostics: Standard error logging with traceback output (`dmarc-parser/main.py`, `smtp-ingester/main.py`, `api/main.py`).
+* Database Session Management: SQLModel session injection via `get_session` helper (`api/main.py`).
+* Data Processing: XML extraction supporting `.zip` and `.gz` report archives (`dmarc-parser/main.py`).
 
-// TODO: REVIEW REQUIRED - Document security, authentication, and secret management patterns.
+== Security & Secret Management
+* [INCOMPLETE / UNDOCUMENTED]: User authentication mechanisms and centralized secret management patterns are currently not implemented in codebase. Environment variables are loaded via `.env` (`.env.example`).
+
+// TODO: REVIEW REQUIRED - Document security, authentication, and key rotation mechanisms when implemented.

@@ -1,7 +1,7 @@
 = 09. Architecture Decisions
 
-== ADRs (Architecture Decision Records)
-* ADR 001: Use docToolchain for Docs-as-Code pipeline.
-* ADR 002: Manual trigger strategy for GitHub Actions documentation pipeline to avoid token waste.
+== Architecture Decision Records (ADRs)
+* ADR 001: Use docToolchain / Asciidoctor for Docs-as-Code pipeline (`scripts/build-architecture-docs.sh`).
+* ADR 002: Manual trigger strategy (`workflow_dispatch`) for GitHub Actions documentation pipeline to eliminate token waste (`.github/workflows/architecture-docs-manual.yml`).
 
-// TODO: REVIEW REQUIRED - Record future architectural decision records here.
+// TODO: REVIEW REQUIRED - Record future architectural decision records here when major design choices are made.

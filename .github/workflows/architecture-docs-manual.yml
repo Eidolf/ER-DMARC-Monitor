@@ -40,16 +40,23 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Validate manual trigger inputs
+        env:
+          INPUT_SINCE_REF: ${{ inputs.since_ref }}
+          INPUT_TARGET_REF: ${{ inputs.target_ref }}
+          INPUT_USE_AI: ${{ inputs.use_ai }}
+          INPUT_CREATE_PULL_REQUEST: ${{ inputs.create_pull_request }}
+          INPUT_FORCE_FULL_SCAN: ${{ inputs.force_full_scan }}
         run: |
-          echo "=== Workflow Triggered Manually ==="
-          echo "Actor: ${{ github.actor }}"
-          echo "since_ref: '${{ inputs.since_ref }}'"
-          echo "target_ref: '${{ inputs.target_ref }}'"
-          echo "use_ai: '${{ inputs.use_ai }}'"
-          echo "create_pull_request: '${{ inputs.create_pull_request }}'"
-          echo "force_full_scan: '${{ inputs.force_full_scan }}'"
+          printf "=== Workflow Triggered Manually ===\n"
+          printf "Actor: %s\n" "${GITHUB_ACTOR}"
+          printf "since_ref: '%s'\n" "${INPUT_SINCE_REF}"
+          printf "target_ref: '%s'\n" "${INPUT_TARGET_REF}"
+          printf "use_ai: '%s'\n" "${INPUT_USE_AI}"
+          printf "create_pull_request: '%s'\n" "${INPUT_CREATE_PULL_REQUEST}"
+          printf "force_full_scan: '%s'\n" "${INPUT_FORCE_FULL_SCAN}"
 
       - name: Prepare documentation folder structure
         run: |

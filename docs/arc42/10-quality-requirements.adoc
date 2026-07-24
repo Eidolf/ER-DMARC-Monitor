@@ -1,8 +1,8 @@
 = 10. Quality Requirements
 
-== Quality Tree
-* Maintainability: Clear separation of microservices.
-* Performance: Fast ingestion via Redis queues and asynchronous parsing.
-* Accuracy: Precise parsing of SPF, DKIM, and DMARC alignment results.
+== Quality Tree & Scenarios [INCOMPLETE / WORK IN PROGRESS]
+* Maintainability Scenario: Modular microservices layout (`api/`, `dmarc-parser/`, `smtp-ingester/`, `frontend/`). Threshold: 100% type-checking compliance (`npx tsc --noEmit`).
+* Performance Scenario: Async report processing via Redis queue (`dmarc-parser/main.py`). Target throughput: Process 100 XML reports/min.
+* Accuracy Scenario: Precise XML validation & DNS verification (`api/dns_utils.py`). Target accuracy: 100% compliance with RFC 7489 / DMARC tags parsing.
 
-// TODO: REVIEW REQUIRED - Complete quality scenarios matrix with latency and throughput SLAs.
+// TODO: REVIEW REQUIRED - Complete formalized quality scenarios matrix with benchmarked latency and throughput SLAs.

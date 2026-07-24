@@ -33,9 +33,16 @@ def get_spf_record(domain):
     r_cache.setex(cache_key, 3600, json.dumps(result)) # 1h cache
     return result
 
+def _get_org_domain(domain):
+    parts = domain.lower().strip('.').split('.')
+    if len(parts) >= 2:
+        return '.'.join(parts[-2:])
+    return domain.lower()
+
 def check_external_dmarc_authorization(source_domain, dmarc_record):
     import re
     destinations = []
+    source_org = _get_org_domain(source_domain)
     for tag in ['rua', 'ruf']:
         match = re.search(r'\b' + tag + r'\s*=\s*([^;]+)', dmarc_record, re.IGNORECASE)
         if match:
@@ -46,7 +53,8 @@ def check_external_dmarc_authorization(source_domain, dmarc_record):
                     email = uri[7:]
                     if '@' in email:
                         dest_domain = email.split('@')[1].split('?')[0].lower().strip()
-                        if dest_domain != source_domain.lower() and not source_domain.lower().endswith('.' + dest_domain):
+                        dest_org = _get_org_domain(dest_domain)
+                        if dest_org != source_org:
                             destinations.append((tag, dest_domain))
     
     auth_results = []
@@ -56,10 +64,17 @@ def check_external_dmarc_authorization(source_domain, dmarc_record):
         is_authorized = False
         record_value = None
         for r in txt_records:
-            if r.strip().lower().startswith("v=dmarc1"):
-                is_authorized = True
-                record_value = r
-                break
+            cleaned = r.strip()
+            # Split tags by semicolon
+            tags = [t.strip() for t in cleaned.split(';') if t.strip()]
+            if tags:
+                first_tag = tags[0]
+                if '=' in first_tag:
+                    k, v = first_tag.split('=', 1)
+                    if k.strip().lower() == 'v' and v.strip().lower() == 'dmarc1':
+                        is_authorized = True
+                        record_value = r
+                        break
         
         auth_results.append({
             "destination_domain": dest_domain,
@@ -93,7 +108,6 @@ def get_dmarc_record(domain):
     return result
 
 def get_dkim_status_heuristic(domain):
-    import re
     cache_key = f"dns:dkim:{domain}"
     cached = r_cache.get(cache_key)
     if cached:
@@ -107,11 +121,14 @@ def get_dkim_status_heuristic(domain):
         records = query_txt(target)
         if records:
             record = records[0]
-            # Match empty public key p= (revocation)
-            p_match = re.search(r'\bp\s*=\s*(?:;\s*|$)|\bp\s*=\s*""', record)
             is_revoked = False
-            if p_match or ('p=' in record and re.search(r'p\s*=\s*$', record.strip())):
-                is_revoked = True
+            tags = [t.strip() for t in record.split(';') if t.strip()]
+            for tag in tags:
+                if '=' in tag:
+                    k, v = tag.split('=', 1)
+                    if k.strip() == 'p' and v.strip() == '':
+                        is_revoked = True
+                        break
             
             found_selectors.append({
                 "selector": selector,

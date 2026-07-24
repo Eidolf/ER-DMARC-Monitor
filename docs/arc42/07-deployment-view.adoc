@@ -1,13 +1,16 @@
 = 07. Deployment View
 
-== Deployment Environment
-* Container Orchestration: Managed via `docker-compose.yml`.
+== Local / Development Deployment
+* Container Orchestration: Local multi-container development environment defined in `docker-compose.yml`.
 * Services:
-  - `api`
-  - `frontend`
-  - `smtp-ingester`
-  - `dmarc-parser`
-  - `db` (PostgreSQL)
-  - `redis` (Message broker)
+  - `api`: FastAPI application (`api/Dockerfile`, `docker-compose.yml`)
+  - `frontend`: React SPA web server (`frontend/Dockerfile`, `docker-compose.yml`)
+  - `smtp-ingester`: SMTP mail receiver (`smtp-ingester/Dockerfile`, `docker-compose.yml`)
+  - `dmarc-parser`: Queue worker (`dmarc-parser/Dockerfile`, `docker-compose.yml`)
+  - `db`: PostgreSQL database container
+  - `redis`: Redis queue broker container
 
-// TODO: REVIEW REQUIRED - Document Production Kubernetes / Helm chart deployment topology if implemented.
+== Production Deployment Topology
+* [INCOMPLETE / UNDOCUMENTED]: Production Kubernetes / Helm chart deployment topology manifests do not exist in repository.
+
+// TODO: REVIEW REQUIRED - Document Production Kubernetes or Helm deployment topology when manifests are added.

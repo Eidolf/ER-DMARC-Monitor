@@ -40,7 +40,7 @@ To enable AI-assisted documentation updates when selecting `use_ai=true`, config
 After workflow completion:
 1. Open the specific workflow run execution page.
 2. Scroll to the **Artifacts** section.
-3. Download `architecture-docs-html` (and `architecture-docs-pdf` if available).
+3. Download `architecture-docs-site` (contains generated HTML documentation and PDF if available).
 
 ### Building Documentation Locally (Without AI)
 

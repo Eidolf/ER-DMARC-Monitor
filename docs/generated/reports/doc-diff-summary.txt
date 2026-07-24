@@ -1,2 +1,23 @@
- project_manifest.json | 5 +++++
- 1 file changed, 5 insertions(+)
+ .github/workflows/architecture-docs-manual.yml | 130 ++++++++++++++++
+ README.md                                      | 168 +++++++-------------
+ docs/arc42/01-introduction-and-goals.adoc      |  18 +++
+ docs/arc42/02-architecture-constraints.adoc    |  12 ++
+ docs/arc42/03-system-scope-and-context.adoc    |  11 ++
+ docs/arc42/04-solution-strategy.adoc           |   8 +
+ docs/arc42/05-building-block-view.adoc         |  14 ++
+ docs/arc42/06-runtime-view.adoc                |   9 ++
+ docs/arc42/07-deployment-view.adoc             |  13 ++
+ docs/arc42/08-crosscutting-concepts.adoc       |   8 +
+ docs/arc42/09-architecture-decisions.adoc      |   7 +
+ docs/arc42/10-quality-requirements.adoc        |   8 +
+ docs/arc42/11-risks-and-technical-debt.adoc    |  10 ++
+ docs/arc42/12-glossary.adoc                    |  10 ++
+ docs/generated/reports/doc-diff-summary.txt    |   2 +
+ docs/generated/reports/doc-relevant-files.txt  |   0
+ docs/generated/reports/doc-update-required.txt |   1 +
+ docs/generated/site/index.html                 | 206 +++++++++++++++++++++++++
+ scripts/ai-update-arc42-prompt.md              |  17 ++
+ scripts/build-architecture-docs.sh             |  83 ++++++++++
+ scripts/detect-doc-relevant-changes.sh         | 143 +++++++++++++++++
+ scripts/update-architecture-docs.sh            |  69 +++++++++
+ 22 files changed, 832 insertions(+), 115 deletions(-)

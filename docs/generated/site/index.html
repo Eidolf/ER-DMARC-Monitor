@@ -90,16 +90,16 @@ The system interfaces with external Mail Transfer Agents (MTAs) sending DMARC ag
 
 == Level 1: System Overview
 The main system components include:
-* `smtp-ingester`: Ingests incoming emails containing DMARC aggregate reports (`.zip`, `.xml`, `.gz`).
-* `dmarc-parser`: Parses XML reports and inserts structured records into PostgreSQL.
+* `smtp-ingester`: Ingests incoming emails containing DMARC aggregate reports (`smtp-ingester/main.py`).
+* `dmarc-parser`: Parses XML reports and inserts structured records into PostgreSQL (`dmarc-parser/main.py`).
 * `api`: FastAPI application serving backend REST APIs (`api/main.py`).
-* `frontend`: Single-page web application (`frontend/src/`).
+* `frontend`: React SPA dashboard (`frontend/src/App.tsx`).
 
 == Level 2: Component Breakdown
-* Database models &amp; schemas defined in `api/` and shared ORM definitions.
-* Background queue handlers in `dmarc-parser/`.
+* Data Models &amp; Database Schemas: SQLModel definitions in `api/models.py`.
+* Redis Job Ingestion &amp; Parser Handlers: Queue processor in `dmarc-parser/main.py` and receiver in `smtp-ingester/main.py`.
 
-// TODO: REVIEW REQUIRED - Update building block diagrams when components are added or refactored.
+// TODO: REVIEW REQUIRED - Update building block diagrams when additional component sub-modules are introduced.
     </pre>
   </div>
   <div class="chapter">
@@ -108,12 +108,15 @@ The main system components include:
 = 06. Runtime View
 
 == Scenario 1: DMARC Report Ingestion &amp; Processing
-1. External MTA delivers DMARC report email to `smtp-ingester`.
-2. `smtp-ingester` extracts attachment, pushes payload metadata to Redis queue.
-3. `dmarc-parser` fetches job from Redis queue, decompresses XML, parses records, and saves to PostgreSQL.
-4. User accesses frontend dashboard; `frontend` fetches aggregated metrics from `api`.
+1. External MTA delivers DMARC report email to `smtp-ingester` (`smtp-ingester/main.py`).
+2. `smtp-ingester` extracts attachment, pushes payload job metadata to Redis queue (`smtp-ingester/main.py`).
+3. `dmarc-parser` fetches job from Redis queue, decompresses XML (`.zip`/`.gz`), parses records, and saves to PostgreSQL (`dmarc-parser/main.py`).
+4. User accesses web dashboard; `frontend` fetches aggregated metrics via REST API endpoints (`frontend/src/App.tsx`, `api/main.py`).
 
-// TODO: REVIEW REQUIRED - Add sequence diagrams for authentication and report export flows.
+== Scenario 2: Authentication &amp; Report Export Flows
+* [INCOMPLETE / UNDOCUMENTED]: Sequence diagrams and flows for user authentication and report exports are currently not implemented in codebase.
+
+// TODO: REVIEW REQUIRED - Document authentication and report export runtime flows when implemented.
     </pre>
   </div>
   <div class="chapter">
@@ -121,17 +124,20 @@ The main system components include:
     <pre>
 = 07. Deployment View
 
-== Deployment Environment
-* Container Orchestration: Managed via `docker-compose.yml`.
+== Local / Development Deployment
+* Container Orchestration: Local multi-container development environment defined in `docker-compose.yml`.
 * Services:
-  - `api`
-  - `frontend`
-  - `smtp-ingester`
-  - `dmarc-parser`
-  - `db` (PostgreSQL)
-  - `redis` (Message broker)
+  - `api`: FastAPI application (`api/Dockerfile`, `docker-compose.yml`)
+  - `frontend`: React SPA web server (`frontend/Dockerfile`, `docker-compose.yml`)
+  - `smtp-ingester`: SMTP mail receiver (`smtp-ingester/Dockerfile`, `docker-compose.yml`)
+  - `dmarc-parser`: Queue worker (`dmarc-parser/Dockerfile`, `docker-compose.yml`)
+  - `db`: PostgreSQL database container
+  - `redis`: Redis queue broker container
 
-// TODO: REVIEW REQUIRED - Document Production Kubernetes / Helm chart deployment topology if implemented.
+== Production Deployment Topology
+* [INCOMPLETE / UNDOCUMENTED]: Production Kubernetes / Helm chart deployment topology manifests do not exist in repository.
+
+// TODO: REVIEW REQUIRED - Document Production Kubernetes or Helm deployment topology when manifests are added.
     </pre>
   </div>
   <div class="chapter">
@@ -140,11 +146,14 @@ The main system components include:
 = 08. Crosscutting Concepts
 
 == Architecture &amp; Domain Concepts
-* Logging &amp; Diagnostics: Structured logs output to stderr across services.
-* Database Session Management: FastAPI dependency-injected sessions (`Depends(get_session)`).
-* Data Processing: Resilient XML parsing supporting multiple archive formats (`.zip`, `.xml`, `.gz`).
+* Logging &amp; Diagnostics: Standard error logging with traceback output (`dmarc-parser/main.py`, `smtp-ingester/main.py`, `api/main.py`).
+* Database Session Management: SQLModel session injection via `get_session` helper (`api/main.py`).
+* Data Processing: XML extraction supporting `.zip` and `.gz` report archives (`dmarc-parser/main.py`).
 
-// TODO: REVIEW REQUIRED - Document security, authentication, and secret management patterns.
+== Security &amp; Secret Management
+* [INCOMPLETE / UNDOCUMENTED]: User authentication mechanisms and centralized secret management patterns are currently not implemented in codebase. Environment variables are loaded via `.env` (`.env.example`).
+
+// TODO: REVIEW REQUIRED - Document security, authentication, and key rotation mechanisms when implemented.
     </pre>
   </div>
   <div class="chapter">
@@ -152,11 +161,11 @@ The main system components include:
     <pre>
 = 09. Architecture Decisions
 
-== ADRs (Architecture Decision Records)
-* ADR 001: Use docToolchain for Docs-as-Code pipeline.
-* ADR 002: Manual trigger strategy for GitHub Actions documentation pipeline to avoid token waste.
+== Architecture Decision Records (ADRs)
+* ADR 001: Use docToolchain / Asciidoctor for Docs-as-Code pipeline (`scripts/build-architecture-docs.sh`).
+* ADR 002: Manual trigger strategy (`workflow_dispatch`) for GitHub Actions documentation pipeline to eliminate token waste (`.github/workflows/architecture-docs-manual.yml`).
 
-// TODO: REVIEW REQUIRED - Record future architectural decision records here.
+// TODO: REVIEW REQUIRED - Record future architectural decision records here when major design choices are made.
     </pre>
   </div>
   <div class="chapter">
@@ -164,12 +173,12 @@ The main system components include:
     <pre>
 = 10. Quality Requirements
 
-== Quality Tree
-* Maintainability: Clear separation of microservices.
-* Performance: Fast ingestion via Redis queues and asynchronous parsing.
-* Accuracy: Precise parsing of SPF, DKIM, and DMARC alignment results.
+== Quality Tree &amp; Scenarios [INCOMPLETE / WORK IN PROGRESS]
+* Maintainability Scenario: Modular microservices layout (`api/`, `dmarc-parser/`, `smtp-ingester/`, `frontend/`). Threshold: 100% type-checking compliance (`npx tsc --noEmit`).
+* Performance Scenario: Async report processing via Redis queue (`dmarc-parser/main.py`). Target throughput: Process 100 XML reports/min.
+* Accuracy Scenario: Precise XML validation &amp; DNS verification (`api/dns_utils.py`). Target accuracy: 100% compliance with RFC 7489 / DMARC tags parsing.
 
-// TODO: REVIEW REQUIRED - Complete quality scenarios matrix with latency and throughput SLAs.
+// TODO: REVIEW REQUIRED - Complete formalized quality scenarios matrix with benchmarked latency and throughput SLAs.
     </pre>
   </div>
   <div class="chapter">
@@ -179,7 +188,18 @@ The main system components include:
 
 == Technical Risks
 * Large XML Attachments: Processing extremely large aggregate reports could exceed container memory limits if not streamed.
+  - Impact: Medium (Container OOM kill)
+  - Likelihood: Low
+  - Mitigation: Implement chunked streaming for decompressed XML payload parsing in `dmarc-parser/main.py`.
+  - Detection: Monitor container memory utilization in Docker metrics.
+  - Accountable Owner: Backend Lead (`@dev-team`)
+
 * Malformed Email Reports: Handling non-standard DMARC XML schemas safely.
+  - Impact: Low (Parser task failure)
+  - Likelihood: Medium
+  - Mitigation: Wrap XML parsing in schema validation and catch parse exceptions explicitly in `dmarc-parser/main.py`.
+  - Detection: Error log entries recorded in stderr.
+  - Accountable Owner: Parser Maintainer (`@dev-team`)
 
 == Technical Debt
 * Documentation Automation: AI updates must be validated manually by maintainers.

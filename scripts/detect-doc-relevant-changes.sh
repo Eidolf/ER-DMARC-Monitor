@@ -75,8 +75,9 @@ MATCHED_FILES=()
 
 if [[ "${FORCE_FULL_SCAN}" == "true" ]]; then
   echo "Force full scan enabled. Scanning repository for matching paths..." > "${DIFF_SUMMARY_REPORT}"
-  ALL_FILES=$(git ls-files "${TARGET_REF}" 2>/dev/null || find . -type f)
-  for file in ${ALL_FILES}; do
+  
+  # Enumerate tracked files from TARGET_REF with NUL-delimited output
+  while IFS= read -r -d '' file; do
     for pattern in "${RELEVANT_PATTERNS[@]}"; do
       if [[ "${pattern}" == */ ]]; then
         if [[ "${file}" == ${pattern}* ]]; then
@@ -84,7 +85,6 @@ if [[ "${FORCE_FULL_SCAN}" == "true" ]]; then
           break
         fi
       elif [[ "${pattern}" == *\** ]]; then
-        # Glob pattern check
         filename=$(basename "${file}")
         if [[ "${filename}" == ${pattern} ]]; then
           MATCHED_FILES+=("${file}")
@@ -97,7 +97,7 @@ if [[ "${FORCE_FULL_SCAN}" == "true" ]]; then
         fi
       fi
     done
-  done
+  done < <(git ls-tree -r --name-only -z "${TARGET_REF}" 2>/dev/null || find . -type f -print0)
 else
   # Perform git diff check
   if git rev-parse --verify "${SINCE_REF}" >/dev/null 2>&1 && git rev-parse --verify "${TARGET_REF}" >/dev/null 2>&1; then

@@ -578,9 +578,9 @@ function Dashboard() {
                                       <code className="dns-record" style={{display: 'block', marginTop: '0.5rem', overflowX: 'auto', background: 'rgba(0,0,0,0.2)', padding: '0.6rem', borderRadius: '4px'}}>{s.record}</code>
                                       {s.is_revoked && (
                                         <div className="guidance-box suspicious" style={{marginTop: '0.8rem', padding: '0.8rem', borderLeft: '4px solid #ef4444', background: 'rgba(239, 68, 68, 0.05)'}}>
-                                          <p style={{fontWeight: 600, color: '#ef4444', fontSize: '0.85rem'}}>Warnung</p>
+                                          <p style={{fontWeight: 600, color: '#ef4444', fontSize: '0.85rem'}}>Warning</p>
                                           <p style={{fontSize: '0.85rem', color: 'var(--text-primary)'}}>DKIM record at "{s.selector}" appears to be revoked (empty public key). Messages signed with this selector will fail DKIM verification.</p>
-                                          <p style={{fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.5rem'}}>Empfehlung</p>
+                                          <p style={{fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.5rem'}}>Recommendation</p>
                                           <p style={{fontSize: '0.85rem', color: 'var(--text-primary)'}}>Re-publish the DKIM public key if this selector is still in use, or remove the DNS record if it has been retired.</p>
                                         </div>
                                       )}

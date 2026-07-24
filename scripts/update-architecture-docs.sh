@@ -23,18 +23,6 @@ fi
 run_ai_update() {
   echo "=== Running AI Architecture Documentation Update ==="
   
-  if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
-    echo "Using Anthropic Claude API for architecture doc update..."
-    # Provider hook for Anthropic API call if required
-  elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
-    echo "Using OpenAI-compatible API for architecture doc update..."
-    # Provider hook for OpenAI API call if required
-  else
-    echo "::warning ::No ANTHROPIC_API_KEY or OPENAI_API_KEY configured in secrets. Skipping AI documentation update."
-    echo "Documentation build will proceed with existing manual arc42 docs."
-    return 0
-  fi
-
   # Filter ignored directories and files securely
   TMP_CONTEXT=$(mktemp)
   echo "Gathering relevant code summaries..." > "${TMP_CONTEXT}"
@@ -48,7 +36,6 @@ run_ai_update() {
     
     if [[ -f "${file}" ]]; then
       echo "--- File: ${file} ---" >> "${TMP_CONTEXT}"
-      # Summarize large files (>200 lines)
       LINE_COUNT=$(wc -l < "${file}" 2>/dev/null || echo 0)
       if [[ "${LINE_COUNT}" -gt 200 ]]; then
         echo "[File summarized - showing first 50 and last 50 lines of ${LINE_COUNT} total lines]" >> "${TMP_CONTEXT}"
@@ -61,6 +48,23 @@ run_ai_update() {
       echo "" >> "${TMP_CONTEXT}"
     fi
   done < "${FILES_LIST}"
+
+  PROMPT_FILE="scripts/ai-update-arc42-prompt.md"
+
+  if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+    echo "Using Anthropic Claude API for architecture doc update..."
+    # Call API with PROMPT_FILE and TMP_CONTEXT content
+    # Write output to docs/arc42/
+  elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
+    echo "Using OpenAI API for architecture doc update..."
+    # Call API with PROMPT_FILE and TMP_CONTEXT content
+    # Write output to docs/arc42/
+  else
+    echo "::warning ::No ANTHROPIC_API_KEY or OPENAI_API_KEY configured in secrets. Skipping AI documentation update."
+    echo "Documentation build will proceed with existing manual arc42 docs."
+    rm -f "${TMP_CONTEXT}"
+    return 0
+  fi
 
   rm -f "${TMP_CONTEXT}"
   echo "AI update step completed."
