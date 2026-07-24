@@ -1,0 +1,13 @@
+# Build outputs & generated artifacts
+docs/generated/
+
+# Python cache & environment
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node / Frontend
+node_modules/
+dist/
+build/
