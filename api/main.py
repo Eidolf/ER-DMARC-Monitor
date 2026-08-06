@@ -832,7 +832,10 @@ def get_domain_records(
     if start_date:
         statement = statement.where(ReportMetadata.date_end >= datetime.fromisoformat(start_date))
     if end_date:
-        statement = statement.where(ReportMetadata.date_end <= datetime.fromisoformat(end_date))
+        parsed_end = datetime.fromisoformat(end_date)
+        if parsed_end.time() == datetime.min.time():
+            parsed_end = datetime.combine(parsed_end.date(), datetime.max.time())
+        statement = statement.where(ReportMetadata.date_end <= parsed_end)
         
     statement = statement.order_by(ReportMetadata.date_end.desc())
     results = session.exec(statement).all()
@@ -870,7 +873,10 @@ def get_all_records(
     if start_date:
         statement = statement.where(ReportMetadata.date_end >= datetime.fromisoformat(start_date))
     if end_date:
-        statement = statement.where(ReportMetadata.date_end <= datetime.fromisoformat(end_date))
+        parsed_end = datetime.fromisoformat(end_date)
+        if parsed_end.time() == datetime.min.time():
+            parsed_end = datetime.combine(parsed_end.date(), datetime.max.time())
+        statement = statement.where(ReportMetadata.date_end <= parsed_end)
         
     statement = statement.order_by(ReportMetadata.date_end.desc()).limit(2000)
     results = session.exec(statement).all()
