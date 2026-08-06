@@ -734,7 +734,7 @@ function Dashboard() {
 
       {uploadOpen && (
         <div className="modal-overlay">
-          <div className="glass-card modal-content" style={{ padding: '2rem', maxWidth: '600px', width: '90%' }}>
+          <div className="glass-card modal-content" style={{ padding: '2rem', maxWidth: '850px', width: '90%' }}>
              <div className="modal-header">
                 <h2>Bulk Report Processing</h2>
                 <button onClick={closeUpload} className="close-btn">&times;</button>
@@ -783,9 +783,9 @@ function Dashboard() {
                       <span>{uploadResults.filter(r => r.status === 'error').length}</span>
                     </div>
                  </div>
-                 <div className="scroll-box" style={{maxHeight: '300px', marginTop: '1rem'}}>
+                 <div className="scroll-box" style={{maxHeight: '350px', marginTop: '1rem'}}>
                     <table className="modern-table mini">
-                      <thead><tr><th>Filename</th><th>Status</th><th>Details</th></tr></thead>
+                      <thead><tr><th style={{ width: '50%' }}>Filename</th><th style={{ width: '20%' }}>Status</th><th style={{ width: '30%' }}>Details</th></tr></thead>
                       <tbody>
                         {uploadResults.map((res, i) => (
                           <tr 
@@ -793,7 +793,7 @@ function Dashboard() {
                             style={{ cursor: res.report_details ? 'pointer' : 'default' }}
                             onClick={() => { if (res.report_details) setSelectedConflict(res); }}
                           >
-                            <td style={{fontSize: '0.8rem'}}>{res.filename}</td>
+                            <td style={{fontSize: '0.8rem', wordBreak: 'break-all'}}>{res.filename}</td>
                             <td>
                               <span className={`status-tag status-${res.status}`}>
                                 {res.status.toUpperCase()}
