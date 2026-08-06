@@ -16,69 +16,11 @@ const formatDate = (dateInput: string | number | Date) => {
   return `${day}.${month}.${year}`;
 };
 
-const formatDateTime = (dateInput: string | number | Date) => {
-  if (!dateInput) return '';
-  const d = new Date(dateInput);
-  if (isNaN(d.getTime())) return String(dateInput);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  return `${day}.${month}.${year} ${hours}:${minutes}`;
-};
-
-interface AppSettings {
-  title_part1: string;
-  title_part2: string;
-  color_part1: string;
-  color_part2: string;
-  logo_url: string | null;
+interface UploadResult {
+  filename: string;
+  status: string;
+  detail?: string;
 }
-
-interface Stats {
-  total_analyzed: number;
-  spf_failures: number;
-  dkim_failures: number;
-  unauthorized_senders: number;
-}
-
-interface DetailedRecord {
-  id: number;
-  source_ip: string;
-  count: number;
-  disposition: string;
-  dkim_pass: boolean;
-  spf_pass: boolean;
-  dkim_auth_details: any[];
-  spf_auth_details: any[];
-  report_id: string;
-  org_name: string;
-  date: string;
-}
-
-type SortKey = 'source_ip' | 'count' | 'org_name' | 'date';
-
-const SortIcon = ({ active, direction }: { active: boolean; direction: 'asc' | 'desc' | null }) => {
-  if (!active) return <span className="sort-icon inactive" style={{marginLeft: '8px', opacity: 0.3}}>↕</span>;
-  return <span className="sort-icon active" style={{marginLeft: '8px', color: '#3b82f6'}}>{direction === 'asc' ? '↑' : '↓'}</span>;
-};
-
-const StatusIcon = ({ pass, size = 16 }: { pass: boolean; size?: number }) => {
-  if (pass) {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#10b981' }}>
-        <polyline points="20 6 9 17 4 12"></polyline>
-      </svg>
-    );
-  }
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ef4444' }}>
-      <line x1="18" y1="6" x2="6" y2="18"></line>
-      <line x1="6" y1="6" x2="18" y2="18"></line>
-    </svg>
-  );
-};
 
 interface Domain {
   id: number;
@@ -90,6 +32,8 @@ interface Domain {
   dmarc_status: string;
   spf_fails: number;
   dkim_fails: number;
+  spf_fail_count: number;
+  dkim_fail_count: number;
   dns_summary?: {
     spf: string;
     dkim: string;
@@ -101,7 +45,6 @@ function Dashboard() {
   const { token, role, logout } = useAuth();
   const [data, setData] = useState<Domain[]>([]);
   const [stats, setStats] = useState<Stats>({ total_analyzed: 0, spf_failures: 0, dkim_failures: 0, unauthorized_senders: 0 });
-  const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'overview' | 'help' | 'settings'>('overview');
   
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -141,7 +84,7 @@ function Dashboard() {
   const [dnsModal, setDnsModal] = useState<{ domainId: number, domainName: string, type: 'spf' | 'dkim' | 'dmarc' } | null>(null);
   const [dnsDetails, setDnsDetails] = useState<any>(null);
   const [dnsLoading, setDnsLoading] = useState(false);
-  const [filterType, setFilterType] = useState<'all' | 'spf' | 'dkim'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'spf' | 'dkim' | 'unauthorized'>('all');
   const [ipModal, setIpModal] = useState<string | null>(null);
   const [ipDetails, setIpDetails] = useState<any>(null);
   const [ipLoading, setIpLoading] = useState(false);
@@ -216,8 +159,7 @@ function Dashboard() {
     authFetch(`/api/reports/stats?start_date=${dateFilter.start}&end_date=${dateFilter.end}`)
       .then(res => res.ok ? res.json() : null)
       .then(json => { if (json) setStats(json); })
-      .catch(err => console.error(err))
-      .finally(() => setLoading(false));
+      .catch(err => console.error(err));
     fetch('/api/settings/branding').then(res => res.json()).then(json => setSettings(json)).catch(err => console.error(err));
     authFetch('/api/auth/me').then(res => res.json()).then(json => setCurrentUser(json)).catch(err => console.error(err));
   };
@@ -234,22 +176,6 @@ function Dashboard() {
   };
 
   useEffect(() => { loadData(); }, [dateFilter]);
-
-  // ... handleAddDomain, handleDeleteDomain, handleInspect, handleFileUpload ...
-
-  const handleAddDomain = () => {
-    if (!newDomainName) return;
-    authFetch('/api/domains', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newDomainName, dmarc_policy: "none" })
-    }).then(res => { if (res.ok) { setNewDomainName(''); loadData(); } });
-  };
-
-  const handleDeleteDomain = (id: number) => {
-    if (!window.confirm("Delete domain?")) return;
-    authFetch(`/api/domains/${id}`, { method: 'DELETE' }).then(() => loadData());
-  };
 
   const handleInspect = (domainName: string | null, initialFilter: 'all' | 'spf' | 'dkim' | 'unauthorized' = 'all') => {
     // We use a special string "system_global" to represent the global view while still being "truthy"
