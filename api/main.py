@@ -794,10 +794,29 @@ def get_domain_dns_details(
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
     
+    # Query learned DKIM selectors from DMARC reports stored in DB
+    db_records = session.exec(
+        select(ReportRecord.dkim_auth_results)
+        .join(ReportMetadata)
+        .where(func.lower(ReportMetadata.domain_name) == domain.name.lower())
+    ).all()
+
+    learned_selectors = set()
+    for res_json in db_records:
+        if res_json:
+            try:
+                details = json.loads(res_json)
+                for item in details:
+                    sel = item.get("selector")
+                    if sel:
+                        learned_selectors.add(sel)
+            except Exception:
+                pass
+
     return {
         "spf": dns_utils.get_spf_record(domain.name),
         "dmarc": dns_utils.get_dmarc_record(domain.name),
-        "dkim": dns_utils.get_dkim_status_heuristic(domain.name)
+        "dkim": dns_utils.get_dkim_status_heuristic(domain.name, db_selectors=list(learned_selectors))
     }
 
 @app.delete("/domains/{domain_id}")
