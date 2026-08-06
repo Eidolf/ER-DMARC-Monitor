@@ -22,6 +22,58 @@ interface UploadResult {
   detail?: string;
 }
 
+interface AppSettings {
+  title_part1: string;
+  title_part2: string;
+  color_part1: string;
+  color_part2: string;
+  logo_url: string | null;
+}
+
+interface Stats {
+  total_analyzed: number;
+  spf_failures: number;
+  dkim_failures: number;
+  unauthorized_senders: number;
+}
+
+interface DetailedRecord {
+  id: number;
+  source_ip: string;
+  count: number;
+  disposition: string;
+  dkim_pass: boolean;
+  spf_pass: boolean;
+  dkim_auth_details: any[];
+  spf_auth_details: any[];
+  report_id: string;
+  org_name: string;
+  date: string;
+}
+
+type SortKey = 'source_ip' | 'count' | 'org_name' | 'date';
+
+const SortIcon = ({ active, direction }: { active: boolean; direction: 'asc' | 'desc' | null }) => {
+  if (!active) return <span className="sort-icon inactive" style={{marginLeft: '8px', opacity: 0.3}}>↕</span>;
+  return <span className="sort-icon active" style={{marginLeft: '8px', color: '#3b82f6'}}>{direction === 'asc' ? '↑' : '↓'}</span>;
+};
+
+const StatusIcon = ({ pass, size = 16 }: { pass: boolean; size?: number }) => {
+  if (pass) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#10b981' }}>
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    );
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ef4444' }}>
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  );
+};
+
 interface Domain {
   id: number;
   name: string;
@@ -60,7 +112,6 @@ function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' | null }>({ key: 'date', direction: 'desc' });
   
-  const [newDomainName, setNewDomainName] = useState('');
   const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
 
   const [settings, setSettings] = useState<AppSettings>({
