@@ -958,18 +958,42 @@ async def upload_reports(
             if metadata is None: continue
                 
             report_id = metadata.findtext("report_id")
+            org_name = metadata.findtext("org_name")
+            date_begin = datetime.fromtimestamp(int(metadata.find("date_range").findtext("begin"))).isoformat() if metadata.find("date_range") and metadata.find("date_range").findtext("begin") else None
+            date_end = datetime.fromtimestamp(int(metadata.find("date_range").findtext("end"))).isoformat() if metadata.find("date_range") and metadata.find("date_range").findtext("end") else None
+            domain_name = root.find("policy_published").findtext("domain") if root.find("policy_published") is not None else "unknown"
+
+            source_ips = []
+            for record in root.findall("record"):
+                row = record.find("row")
+                if row is not None:
+                    ip = row.findtext("source_ip")
+                    cnt = int(row.findtext("count") or 1)
+                    if ip:
+                        source_ips.append({"ip": ip, "count": cnt})
+
+            report_details = {
+                "org_name": org_name,
+                "report_id": report_id,
+                "domain_name": domain_name,
+                "date_begin": date_begin,
+                "date_end": date_end,
+                "source_ips": source_ips
+            }
+
             existing = session.exec(select(ReportMetadata).where(ReportMetadata.report_id == report_id)).first()
             if existing:
-                results.append({"filename": file.filename, "status": "skipped"})
+                report_details["existing_in_db"] = True
+                results.append({"filename": file.filename, "status": "skipped", "report_details": report_details})
                 continue
                 
             report = ReportMetadata(
-                org_name=metadata.findtext("org_name"),
+                org_name=org_name,
                 email=metadata.findtext("email"),
                 report_id=report_id,
-                date_begin=datetime.fromtimestamp(int(metadata.find("date_range").findtext("begin"))),
-                date_end=datetime.fromtimestamp(int(metadata.find("date_range").findtext("end"))),
-                domain_name=root.find("policy_published").findtext("domain") or "unknown"
+                date_begin=datetime.fromisoformat(date_begin) if date_begin else datetime.utcnow(),
+                date_end=datetime.fromisoformat(date_end) if date_end else datetime.utcnow(),
+                domain_name=domain_name or "unknown"
             )
             session.add(report)
             session.flush()
