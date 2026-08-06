@@ -240,19 +240,30 @@ function Dashboard() {
 
   useEffect(() => { loadData(); }, [dateFilter]);
 
-  const handleInspect = (domainName: string | null, initialFilter: 'all' | 'spf' | 'dkim' | 'unauthorized' = 'all') => {
+  const handleInspect = (
+    domainName: string | null, 
+    initialFilter: 'all' | 'spf' | 'dkim' | 'unauthorized' = 'all',
+    initialSearchQuery: string = '',
+    customDateFilter?: { start: string, end: string }
+  ) => {
     // We use a special string "system_global" to represent the global view while still being "truthy"
     const activeTarget = domainName || "__global__";
     setInspectDomain(activeTarget);
     setInspectTab('log');
     setDetailedRecords([]);
     setExpandedRecordId(null);
-    setSearchQuery('');
+    setSearchQuery(initialSearchQuery);
     setFilterType(initialFilter);
     setSortConfig({ key: 'date', direction: 'desc' });
+    
+    if (customDateFilter) {
+      setDateFilter(customDateFilter);
+    }
+    const currentDates = customDateFilter || dateFilter;
+
     const url = domainName 
-      ? `/api/domains/${domainName}/records?start_date=${dateFilter.start}&end_date=${dateFilter.end}` 
-      : `/api/reports/records?start_date=${dateFilter.start}&end_date=${dateFilter.end}`;
+      ? `/api/domains/${domainName}/records?start_date=${currentDates.start}&end_date=${currentDates.end}` 
+      : `/api/reports/records?start_date=${currentDates.start}&end_date=${currentDates.end}`;
     authFetch(url)
       .then(res => res.json())
       .then(json => { if (Array.isArray(json)) setDetailedRecords(json); })
@@ -856,7 +867,21 @@ function Dashboard() {
                           </thead>
                           <tbody>
                             {selectedConflict.report_details.source_ips.map((ipInfo, idx) => (
-                              <tr key={idx}>
+                              <tr 
+                                key={idx} 
+                                style={{ cursor: 'pointer' }}
+                                title="Click to inspect this specific IP"
+                                onClick={() => {
+                                  const domain = selectedConflict.report_details?.domain_name;
+                                  const dateBegin = selectedConflict.report_details?.date_begin?.split('T')[0];
+                                  const dateEnd = selectedConflict.report_details?.date_end?.split('T')[0];
+                                  const dateRange = (dateBegin && dateEnd) ? { start: dateBegin, end: dateEnd } : undefined;
+                                  
+                                  setSelectedConflict(null);
+                                  setUploadOpen(false);
+                                  if (domain) handleInspect(domain, 'all', ipInfo.ip, dateRange);
+                                }}
+                              >
                                 <td><code>{ipInfo.ip}</code></td>
                                 <td>{ipInfo.count}</td>
                               </tr>
@@ -879,12 +904,17 @@ function Dashboard() {
                   className="action-btn primary-btn"
                   onClick={() => {
                     const domain = selectedConflict.report_details?.domain_name;
+                    const org = selectedConflict.report_details?.org_name || '';
+                    const dateBegin = selectedConflict.report_details?.date_begin?.split('T')[0];
+                    const dateEnd = selectedConflict.report_details?.date_end?.split('T')[0];
+                    const dateRange = (dateBegin && dateEnd) ? { start: dateBegin, end: dateEnd } : undefined;
+                    
                     setSelectedConflict(null);
                     setUploadOpen(false);
-                    if (domain) handleInspect(domain);
+                    if (domain) handleInspect(domain, 'all', org, dateRange);
                   }}
                 >
-                  Inspect Domain Records
+                  Inspect Filtered Conflict Records
                 </button>
               )}
               <button className="action-btn" onClick={() => setSelectedConflict(null)}>Close</button>
