@@ -325,9 +325,13 @@ function Dashboard() {
   };
 
   const processedRecords = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     let filtered = detailedRecords.filter(r => 
-      r.source_ip.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      r.org_name.toLowerCase().includes(searchQuery.toLowerCase())
+      !q || 
+      r.source_ip.toLowerCase().includes(q) || 
+      r.org_name.toLowerCase().includes(q) ||
+      (r as any).domain_name?.toLowerCase().includes(q) ||
+      r.report_id?.toLowerCase().includes(q)
     );
     
     if (filterType === 'spf') filtered = filtered.filter(r => !r.spf_pass);
@@ -904,14 +908,17 @@ function Dashboard() {
                   className="action-btn primary-btn"
                   onClick={() => {
                     const domain = selectedConflict.report_details?.domain_name;
+                    const firstIp = selectedConflict.report_details?.source_ips?.[0]?.ip;
                     const org = selectedConflict.report_details?.org_name || '';
+                    const filterQuery = firstIp || org;
+                    
                     const dateBegin = selectedConflict.report_details?.date_begin?.split('T')[0];
                     const dateEnd = selectedConflict.report_details?.date_end?.split('T')[0];
                     const dateRange = (dateBegin && dateEnd) ? { start: dateBegin, end: dateEnd } : undefined;
                     
                     setSelectedConflict(null);
                     setUploadOpen(false);
-                    if (domain) handleInspect(domain, 'all', org, dateRange);
+                    if (domain) handleInspect(domain, 'all', filterQuery, dateRange);
                   }}
                 >
                   Inspect Filtered Conflict Records
