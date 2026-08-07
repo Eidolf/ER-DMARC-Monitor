@@ -16,10 +16,21 @@ const formatDate = (dateInput: string | number | Date) => {
   return `${day}.${month}.${year}`;
 };
 
+interface UploadReportDetails {
+  org_name?: string;
+  report_id?: string;
+  domain_name?: string;
+  date_begin?: string;
+  date_end?: string;
+  source_ips?: { ip: string; count: number }[];
+  existing_in_db?: boolean;
+}
+
 interface UploadResult {
   filename: string;
   status: string;
   detail?: string;
+  report_details?: UploadReportDetails;
 }
 
 interface AppSettings {
@@ -48,6 +59,7 @@ interface DetailedRecord {
   spf_auth_details: any[];
   report_id: string;
   org_name: string;
+  domain_name?: string;
   date: string;
 }
 
@@ -101,6 +113,7 @@ function Dashboard() {
   
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadResults, setUploadResults] = useState<UploadResult[] | null>(null);
+  const [selectedConflict, setSelectedConflict] = useState<UploadResult | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [inspectDomain, setInspectDomain] = useState<string | null>(null);
   const [inspectTab, setInspectTab] = useState<'log' | 'reporters'>('log');
@@ -228,19 +241,30 @@ function Dashboard() {
 
   useEffect(() => { loadData(); }, [dateFilter]);
 
-  const handleInspect = (domainName: string | null, initialFilter: 'all' | 'spf' | 'dkim' | 'unauthorized' = 'all') => {
+  const handleInspect = (
+    domainName: string | null, 
+    initialFilter: 'all' | 'spf' | 'dkim' | 'unauthorized' = 'all',
+    initialSearchQuery: string = '',
+    customDateFilter?: { start: string, end: string }
+  ) => {
     // We use a special string "system_global" to represent the global view while still being "truthy"
     const activeTarget = domainName || "__global__";
     setInspectDomain(activeTarget);
     setInspectTab('log');
     setDetailedRecords([]);
     setExpandedRecordId(null);
-    setSearchQuery('');
+    setSearchQuery(initialSearchQuery);
     setFilterType(initialFilter);
     setSortConfig({ key: 'date', direction: 'desc' });
+    
+    if (customDateFilter) {
+      setDateFilter(customDateFilter);
+    }
+    const currentDates = customDateFilter || dateFilter;
+
     const url = domainName 
-      ? `/api/domains/${domainName}/records?start_date=${dateFilter.start}&end_date=${dateFilter.end}` 
-      : `/api/reports/records?start_date=${dateFilter.start}&end_date=${dateFilter.end}`;
+      ? `/api/domains/${domainName}/records?start_date=${currentDates.start}&end_date=${currentDates.end}` 
+      : `/api/reports/records?start_date=${currentDates.start}&end_date=${currentDates.end}`;
     authFetch(url)
       .then(res => res.json())
       .then(json => { if (Array.isArray(json)) setDetailedRecords(json); })
@@ -282,6 +306,7 @@ function Dashboard() {
     setUploadOpen(false);
     setUploadResults(null);
     setUploadFiles(null);
+    setSelectedConflict(null);
   };
 
   const topSenders = useMemo(() => {
@@ -300,11 +325,19 @@ function Dashboard() {
     setSortConfig({ key, direction });
   };
 
-  const processedRecords = useMemo(() => {
-    let filtered = detailedRecords.filter(r => 
-      r.source_ip.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      r.org_name.toLowerCase().includes(searchQuery.toLowerCase())
+  const searchFilteredRecords = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return detailedRecords.filter(r => 
+      !q || 
+      r.source_ip.toLowerCase().includes(q) || 
+      r.org_name.toLowerCase().includes(q) ||
+      r.domain_name?.toLowerCase().includes(q) ||
+      r.report_id?.toLowerCase().includes(q)
     );
+  }, [detailedRecords, searchQuery]);
+
+  const processedRecords = useMemo(() => {
+    let filtered = [...searchFilteredRecords];
     
     if (filterType === 'spf') filtered = filtered.filter(r => !r.spf_pass);
     if (filterType === 'dkim') filtered = filtered.filter(r => !r.dkim_pass);
@@ -320,13 +353,13 @@ function Dashboard() {
       });
     }
     return filtered;
-  }, [detailedRecords, searchQuery, sortConfig, filterType]);
+  }, [searchFilteredRecords, sortConfig, filterType]);
 
-  const totalInRecords = detailedRecords.reduce((acc, r) => acc + r.count, 0);
-  const spfPassCount = detailedRecords.filter(r => r.spf_pass).reduce((acc, r) => acc + r.count, 0);
-  const dkimPassCount = detailedRecords.filter(r => r.dkim_pass).reduce((acc, r) => acc + r.count, 0);
+  const totalInRecords = searchFilteredRecords.reduce((acc, r) => acc + r.count, 0);
+  const spfPassCount = searchFilteredRecords.filter(r => r.spf_pass).reduce((acc, r) => acc + r.count, 0);
+  const dkimPassCount = searchFilteredRecords.filter(r => r.dkim_pass).reduce((acc, r) => acc + r.count, 0);
   const reporterMap = new Map<string, {count: number, spfFail: number, dkimFail: number, lastDate: string}>();
-  detailedRecords.forEach(r => {
+  searchFilteredRecords.forEach(r => {
     const curr = reporterMap.get(r.org_name) || {count: 0, spfFail: 0, dkimFail: 0, lastDate: r.date};
     curr.count += r.count;
     if (!r.spf_pass) curr.spfFail += r.count;
@@ -334,7 +367,7 @@ function Dashboard() {
     if (new Date(r.date) > new Date(curr.lastDate)) curr.lastDate = r.date;
     reporterMap.set(r.org_name, curr);
   });
-  const reporters = [...reporterMap.entries()].filter(([name]) => name.toLowerCase().includes(searchQuery.toLowerCase())).sort((a, b) => b[1].count - a[1].count);
+  const reporters = [...reporterMap.entries()].sort((a, b) => b[1].count - a[1].count);
 
   const isAdmin = role === 'Admin';
   const isAnalyst = role === 'Analyst' || isAdmin;
@@ -710,7 +743,7 @@ function Dashboard() {
 
       {uploadOpen && (
         <div className="modal-overlay">
-          <div className="glass-card modal-content" style={{ padding: '2rem', maxWidth: '600px', width: '90%' }}>
+          <div className="glass-card modal-content" style={{ padding: '2rem', maxWidth: '850px', width: '90%' }}>
              <div className="modal-header">
                 <h2>Bulk Report Processing</h2>
                 <button onClick={closeUpload} className="close-btn">&times;</button>
@@ -742,35 +775,178 @@ function Dashboard() {
                       <label>Success</label>
                       <span>{uploadResults.filter(r => r.status === 'success').length}</span>
                     </div>
-                    <div className="summary-item skipped">
-                      <label>Skipped</label>
-                      <span>{uploadResults.filter(r => r.status === 'skipped').length}</span>
-                    </div>
+                    {uploadResults.some(r => r.status === 'skipped') ? (
+                      <button 
+                        className="summary-item skipped is-interactive" 
+                        style={{ cursor: 'pointer', background: 'none', border: '1px solid transparent', textAlign: 'left', font: 'inherit', padding: 0 }}
+                        title="Click to view skipped conflict details"
+                        onClick={() => {
+                          const firstSkipped = uploadResults.find(r => r.status === 'skipped');
+                          if (firstSkipped) setSelectedConflict(firstSkipped);
+                        }}
+                      >
+                        <label>Skipped (Conflicts)</label>
+                        <span className="summary-value">{uploadResults.filter(r => r.status === 'skipped').length}</span>
+                      </button>
+                    ) : (
+                      <div className="summary-item skipped">
+                        <label>Skipped (Conflicts)</label>
+                        <span className="summary-value">0</span>
+                      </div>
+                    )}
                     <div className="summary-item error">
                       <label>Errors</label>
                       <span>{uploadResults.filter(r => r.status === 'error').length}</span>
                     </div>
-                 </div>
-                 <div className="scroll-box" style={{maxHeight: '300px', marginTop: '1rem'}}>
-                    <table className="modern-table mini">
-                      <thead><tr><th>Filename</th><th>Status</th></tr></thead>
-                      <tbody>
-                        {uploadResults.map((res, i) => (
-                          <tr key={i}>
-                            <td style={{fontSize: '0.8rem'}}>{res.filename}</td>
-                            <td>
-                              <span className={`status-tag status-${res.status}`}>
-                                {res.status.toUpperCase()}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                 </div>
-                 <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={closeUpload}>Close Summary</button>
+                  </div>
+                  <div className="scroll-box" style={{maxHeight: '350px', marginTop: '1rem'}}>
+                     <table className="modern-table mini">
+                       <thead><tr><th style={{ width: '50%' }}>Filename</th><th style={{ width: '20%' }}>Status</th><th style={{ width: '30%' }}>Details</th></tr></thead>
+                       <tbody>
+                         {uploadResults.map((res, i) => (
+                           <tr key={i}>
+                             <td style={{fontSize: '0.8rem', wordBreak: 'break-all'}}>{res.filename}</td>
+                             <td>
+                               <span className={`status-tag status-${res.status}`}>
+                                 {res.status.toUpperCase()}
+                               </span>
+                             </td>
+                             <td style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>
+                               {res.status === 'skipped' ? (
+                                 <button 
+                                   className="action-btn small-btn" 
+                                   style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                                   onClick={() => setSelectedConflict(res)}
+                                 >
+                                   View Conflict Info
+                                 </button>
+                               ) : res.detail || '-'}
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                  </div>
+                  <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={closeUpload}>Close Summary</button>
+                </div>
+              )}
+           </div>
+         </div>
+       )}
+
+       {selectedConflict && (
+         <div className="modal-overlay secondary-modal" onClick={() => setSelectedConflict(null)}>
+           <div className="modal-content glass-card" style={{maxWidth: '650px'}} onClick={e => e.stopPropagation()}>
+             <div className="modal-header">
+               <h3>Upload Conflict Details</h3>
+               <button className="close-btn" onClick={() => setSelectedConflict(null)}>×</button>
+             </div>
+             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+               <div className="insight-card" style={{ margin: 0, borderLeft: '4px solid #f59e0b' }}>
+                 <p><strong>Conflict Status:</strong> Skipped (Already in Database)</p>
+                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                   File <code>{selectedConflict.filename}</code> contains a DMARC report ID that is already registered in your database.
+                 </p>
                </div>
-             )}
+
+               {selectedConflict.report_details ? (
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                   <div className="enrichment-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                     <div className="enrich-item">
+                       <label>Reporter / Organization</label>
+                       <span>{selectedConflict.report_details.org_name || 'N/A'}</span>
+                     </div>
+                     <div className="enrich-item">
+                       <label>Report ID</label>
+                       <span style={{ fontSize: '0.85rem', wordBreak: 'break-all' }}>{selectedConflict.report_details.report_id || 'N/A'}</span>
+                     </div>
+                     <div className="enrich-item">
+                       <label>Target Domain</label>
+                       <span>{selectedConflict.report_details.domain_name || 'N/A'}</span>
+                     </div>
+                     <div className="enrich-item">
+                       <label>Report Period</label>
+                       <span>
+                         {selectedConflict.report_details.date_begin ? formatDate(selectedConflict.report_details.date_begin) : 'N/A'} - {selectedConflict.report_details.date_end ? formatDate(selectedConflict.report_details.date_end) : 'N/A'}
+                       </span>
+                     </div>
+                   </div>
+
+                   <div>
+                     <h4 style={{ marginBottom: '0.5rem' }}>Reported Source IPs</h4>
+                     {selectedConflict.report_details.source_ips && selectedConflict.report_details.source_ips.length > 0 ? (
+                       <div className="scroll-box" style={{ maxHeight: '180px' }}>
+                         <table className="modern-table mini">
+                           <thead>
+                             <tr>
+                               <th>Source IP</th>
+                               <th>Message Count</th>
+                               <th>Action</th>
+                             </tr>
+                           </thead>
+                           <tbody>
+                             {selectedConflict.report_details.source_ips.map((ipInfo, idx) => (
+                               <tr key={idx}>
+                                 <td><code>{ipInfo.ip}</code></td>
+                                 <td>{ipInfo.count}</td>
+                                 <td>
+                                   <button 
+                                     className="action-btn small-btn"
+                                     style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                                     title="Click to inspect this specific IP"
+                                     onClick={() => {
+                                       const domain = selectedConflict.report_details?.domain_name;
+                                       const dateBegin = selectedConflict.report_details?.date_begin?.split('T')[0];
+                                       const dateEnd = selectedConflict.report_details?.date_end?.split('T')[0];
+                                       const dateRange = (dateBegin && dateEnd) ? { start: dateBegin, end: dateEnd } : undefined;
+                                       
+                                       setSelectedConflict(null);
+                                       setUploadOpen(false);
+                                       if (domain) handleInspect(domain, 'all', ipInfo.ip, dateRange);
+                                     }}
+                                   >
+                                     Inspect IP
+                                   </button>
+                                 </td>
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                       </div>
+                     ) : (
+                       <p className="hint-text">No individual IP records found in file.</p>
+                     )}
+                   </div>
+                 </div>
+               ) : (
+                 <p>No additional details available for this report.</p>
+               )}
+             </div>
+             <div className="modal-footer" style={{marginTop: '1.5rem', borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+               {selectedConflict.report_details?.domain_name && (
+                 <button 
+                   className="action-btn primary-btn"
+                   onClick={() => {
+                     const domain = selectedConflict.report_details?.domain_name;
+                     const reportId = selectedConflict.report_details?.report_id;
+                     const firstIp = selectedConflict.report_details?.source_ips?.[0]?.ip;
+                     const org = selectedConflict.report_details?.org_name || '';
+                     const filterQuery = reportId || firstIp || org;
+                     
+                     const dateBegin = selectedConflict.report_details?.date_begin?.split('T')[0];
+                     const dateEnd = selectedConflict.report_details?.date_end?.split('T')[0];
+                     const dateRange = (dateBegin && dateEnd) ? { start: dateBegin, end: dateEnd } : undefined;
+                     
+                     setSelectedConflict(null);
+                     setUploadOpen(false);
+                     if (domain) handleInspect(domain, 'all', filterQuery, dateRange);
+                   }}
+                 >
+                   Inspect Filtered Conflict Records
+                 </button>
+               )}
+               <button className="action-btn" onClick={() => setSelectedConflict(null)}>Close</button>
+            </div>
           </div>
         </div>
       )}
@@ -803,18 +979,18 @@ function Dashboard() {
              <div className="analysis-grid">
                 <div className="analysis-col">
                     <div className="report-summary-strip" style={{margin: '0', width: '100%', justifyContent: 'space-around', alignItems: 'flex-start'}}>
-                        <div className={`summary-item ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')} style={{cursor: 'pointer'}}>
-                          <label>Volume</label><span>{totalInRecords.toLocaleString()}</span>
-                        </div>
-                        <div className={`summary-item ${filterType === 'spf' ? 'active' : ''}`} onClick={() => setFilterType('spf')} style={{cursor: 'pointer'}}>
-                          <label>SPF Fail</label><span className={spfPassCount < totalInRecords ? 'text-red' : ''}>{totalInRecords - spfPassCount}</span>
-                        </div>
-                        <div className={`summary-item ${filterType === 'dkim' ? 'active' : ''}`} onClick={() => setFilterType('dkim')} style={{cursor: 'pointer'}}>
-                          <label>DKIM Fail</label><span className={dkimPassCount < totalInRecords ? 'text-orange' : ''}>{totalInRecords - dkimPassCount}</span>
-                        </div>
-                        <div className={`summary-item ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer'}}>
-                          <label>Unauthorized</label><span className="text-red">{detailedRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
-                        </div>
+                        <button type="button" className={`summary-item is-interactive ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')} style={{cursor: 'pointer', background: 'none', border: '1px solid transparent', textAlign: 'left', font: 'inherit', padding: 0}}>
+                          <span className="summary-label">Volume</span><span className="summary-value">{totalInRecords.toLocaleString()}</span>
+                        </button>
+                        <button type="button" className={`summary-item is-interactive ${filterType === 'spf' ? 'active' : ''}`} onClick={() => setFilterType('spf')} style={{cursor: 'pointer', background: 'none', border: '1px solid transparent', textAlign: 'left', font: 'inherit', padding: 0}}>
+                          <span className="summary-label">SPF Fail</span><span className={`summary-value ${spfPassCount < totalInRecords ? 'text-red' : ''}`}>{totalInRecords - spfPassCount}</span>
+                        </button>
+                        <button type="button" className={`summary-item is-interactive ${filterType === 'dkim' ? 'active' : ''}`} onClick={() => setFilterType('dkim')} style={{cursor: 'pointer', background: 'none', border: '1px solid transparent', textAlign: 'left', font: 'inherit', padding: 0}}>
+                          <span className="summary-label">DKIM Fail</span><span className={`summary-value ${dkimPassCount < totalInRecords ? 'text-orange' : ''}`}>{totalInRecords - dkimPassCount}</span>
+                        </button>
+                        <button type="button" className={`summary-item is-interactive ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer', background: 'none', border: '1px solid transparent', textAlign: 'left', font: 'inherit', padding: 0}}>
+                          <span className="summary-label">Unauthorized</span><span className="summary-value text-red">{searchFilteredRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
+                        </button>
                         <div className="summary-item date-picker-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', minWidth: '240px' }}>
                           <label>Period</label>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
@@ -844,7 +1020,7 @@ function Dashboard() {
                           </div>
                         </div>
                         <div className="summary-item">
-                          <label>Health</label><span>{totalInRecords > 0 ? Math.round(((spfPassCount + dkimPassCount) / (2 * totalInRecords)) * 100) : 0}%</span>
+                          <label>Health</label><span className="summary-value">{totalInRecords > 0 ? Math.round(((spfPassCount + dkimPassCount) / (2 * totalInRecords)) * 100) : 0}%</span>
                         </div>
                       </div>
                     <div className="scroll-box" style={{marginTop: '1rem', minHeight: '450px'}}>

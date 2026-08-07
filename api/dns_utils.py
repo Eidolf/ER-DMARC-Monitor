@@ -107,16 +107,49 @@ def get_dmarc_record(domain):
     r_cache.setex(cache_key, 3600, json.dumps(result)) # 1h cache
     return result
 
-def get_dkim_status_heuristic(domain):
-    cache_key = f"dns:dkim:{domain}"
+PROVIDER_SELECTOR_MAP = {
+    "outlook.com": ["selector1", "selector2"],
+    "protection.outlook.com": ["selector1", "selector2"],
+    "google.com": ["google", "20230601", "20210112"],
+    "sendgrid.net": ["s1", "s2"],
+    "mcsv.net": ["k1", "k2"],
+    "postmarkapp.com": ["20150310", "pm"],
+    "amazonses.com": ["7v7523u", "amazonses"]
+}
+
+def get_dkim_status_heuristic(domain: str, db_selectors: list[str] | None = None) -> dict:
+    if db_selectors:
+        sorted_sels = ",".join(sorted(set(db_selectors)))
+        cache_key = f"dns:dkim:{domain}:learned:{sorted_sels}"
+    else:
+        cache_key = f"dns:dkim:{domain}"
+
     cached = r_cache.get(cache_key)
     if cached:
         return json.loads(cached)
 
-    found_selectors = []
-    checked_selectors = COMMON_DKIM_SELECTORS[:8] # Limit for performance
+    selectors_to_check = list(COMMON_DKIM_SELECTORS[:6]) # Base common selectors
     
-    for selector in checked_selectors:
+    # 1. Include learned selectors from DB/DMARC reports
+    if db_selectors:
+        for sel in db_selectors:
+            if sel and sel not in selectors_to_check:
+                selectors_to_check.append(sel)
+                
+    # 2. Inspect SPF includes to infer active provider selectors (e.g. Microsoft 365 selector1 & selector2)
+    spf_info = get_spf_record(domain)
+    spf_records = spf_info.get("records", [])
+    if spf_records:
+        spf_str = " ".join(spf_records).lower()
+        for domain_pattern, provider_selectors in PROVIDER_SELECTOR_MAP.items():
+            if domain_pattern in spf_str:
+                for p_sel in provider_selectors:
+                    if p_sel not in selectors_to_check:
+                        selectors_to_check.append(p_sel)
+
+    found_selectors = []
+    
+    for selector in selectors_to_check:
         target = f"{selector}._domainkey.{domain}"
         records = query_txt(target)
         if records:
@@ -139,7 +172,7 @@ def get_dkim_status_heuristic(domain):
     result = {
         "status": "Set" if found_selectors else "Not Set",
         "found_selectors": found_selectors,
-        "checked_selectors": checked_selectors,
+        "checked_selectors": selectors_to_check,
         "is_heuristic": True
     }
     r_cache.setex(cache_key, 3600, json.dumps(result)) # 1h cache

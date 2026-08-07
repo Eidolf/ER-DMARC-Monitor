@@ -43,6 +43,12 @@ def sync_smtp_config(session: Session):
             pass
     
     domains = session.exec(select(SMTPListeningDomain).where(SMTPListeningDomain.is_active == True)).all()
+
+def normalize_end_date(end_date_str: str) -> datetime:
+    parsed_end = datetime.fromisoformat(end_date_str)
+    if parsed_end.time() == datetime.min.time():
+        parsed_end = datetime.combine(parsed_end.date(), datetime.max.time())
+    return parsed_end
     for d in domains:
         r_client.sadd("smtp:allowed:domains", d.domain_name.lower())
         recipients = session.exec(select(SMTPRecipient).where(SMTPRecipient.listening_domain_id == d.id, SMTPRecipient.is_active == True)).all()
@@ -753,7 +759,7 @@ def get_domains(
             start_dt = datetime.utcnow() - timedelta(days=30)
             
         if end_date:
-            end_dt = datetime.fromisoformat(end_date)
+            end_dt = normalize_end_date(end_date)
         else:
             end_dt = datetime.utcnow()
 
@@ -794,10 +800,31 @@ def get_domain_dns_details(
     if not domain:
         raise HTTPException(status_code=404, detail="Domain not found")
     
+    # Query learned DKIM selectors from DMARC reports stored in DB
+    db_records = session.exec(
+        select(ReportRecord.dkim_auth_results)
+        .join(ReportMetadata)
+        .where(func.lower(ReportMetadata.domain_name) == domain.name.lower())
+    ).all()
+
+    learned_selectors = set()
+    for res_json in db_records:
+        if res_json:
+            try:
+                details = json.loads(res_json)
+                if isinstance(details, list):
+                    for item in details:
+                        if isinstance(item, dict):
+                            sel = item.get("selector")
+                            if sel:
+                                learned_selectors.add(sel)
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                traceback.print_exc()
+
     return {
         "spf": dns_utils.get_spf_record(domain.name),
         "dmarc": dns_utils.get_dmarc_record(domain.name),
-        "dkim": dns_utils.get_dkim_status_heuristic(domain.name)
+        "dkim": dns_utils.get_dkim_status_heuristic(domain.name, db_selectors=list(learned_selectors))
     }
 
 @app.delete("/domains/{domain_id}")
@@ -832,7 +859,7 @@ def get_domain_records(
     if start_date:
         statement = statement.where(ReportMetadata.date_end >= datetime.fromisoformat(start_date))
     if end_date:
-        statement = statement.where(ReportMetadata.date_end <= datetime.fromisoformat(end_date))
+        statement = statement.where(ReportMetadata.date_end <= normalize_end_date(end_date))
         
     statement = statement.order_by(ReportMetadata.date_end.desc())
     results = session.exec(statement).all()
@@ -870,7 +897,7 @@ def get_all_records(
     if start_date:
         statement = statement.where(ReportMetadata.date_end >= datetime.fromisoformat(start_date))
     if end_date:
-        statement = statement.where(ReportMetadata.date_end <= datetime.fromisoformat(end_date))
+        statement = statement.where(ReportMetadata.date_end <= normalize_end_date(end_date))
         
     statement = statement.order_by(ReportMetadata.date_end.desc()).limit(2000)
     results = session.exec(statement).all()
@@ -918,7 +945,7 @@ def get_report_stats(
         statement = statement.where(ReportMetadata.date_end >= thirty_days_ago)
         
     if end_date:
-        statement = statement.where(ReportMetadata.date_end <= datetime.fromisoformat(end_date))
+        statement = statement.where(ReportMetadata.date_end <= normalize_end_date(end_date))
         
     records = session.exec(statement).all()
     total_analyzed = sum(r.count for r in records)
@@ -958,18 +985,42 @@ async def upload_reports(
             if metadata is None: continue
                 
             report_id = metadata.findtext("report_id")
+            org_name = metadata.findtext("org_name")
+            date_begin = datetime.fromtimestamp(int(metadata.find("date_range").findtext("begin"))).isoformat() if metadata.find("date_range") and metadata.find("date_range").findtext("begin") else None
+            date_end = datetime.fromtimestamp(int(metadata.find("date_range").findtext("end"))).isoformat() if metadata.find("date_range") and metadata.find("date_range").findtext("end") else None
+            domain_name = root.find("policy_published").findtext("domain") if root.find("policy_published") is not None else "unknown"
+
+            source_ips = []
+            for record in root.findall("record"):
+                row = record.find("row")
+                if row is not None:
+                    ip = row.findtext("source_ip")
+                    cnt = int(row.findtext("count") or 1)
+                    if ip:
+                        source_ips.append({"ip": ip, "count": cnt})
+
+            report_details = {
+                "org_name": org_name,
+                "report_id": report_id,
+                "domain_name": domain_name,
+                "date_begin": date_begin,
+                "date_end": date_end,
+                "source_ips": source_ips
+            }
+
             existing = session.exec(select(ReportMetadata).where(ReportMetadata.report_id == report_id)).first()
             if existing:
-                results.append({"filename": file.filename, "status": "skipped"})
+                report_details["existing_in_db"] = True
+                results.append({"filename": file.filename, "status": "skipped", "report_details": report_details})
                 continue
                 
             report = ReportMetadata(
-                org_name=metadata.findtext("org_name"),
+                org_name=org_name,
                 email=metadata.findtext("email"),
                 report_id=report_id,
-                date_begin=datetime.fromtimestamp(int(metadata.find("date_range").findtext("begin"))),
-                date_end=datetime.fromtimestamp(int(metadata.find("date_range").findtext("end"))),
-                domain_name=root.find("policy_published").findtext("domain") or "unknown"
+                date_begin=datetime.fromisoformat(date_begin) if date_begin else datetime.utcnow(),
+                date_end=datetime.fromisoformat(date_end) if date_end else datetime.utcnow(),
+                domain_name=domain_name or "unknown"
             )
             session.add(report)
             session.flush()
