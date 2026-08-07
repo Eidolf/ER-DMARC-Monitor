@@ -513,7 +513,8 @@ nav {
   box-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
 }
 
-.summary-item label {
+.summary-item label,
+.summary-item .summary-label {
   font-size: 0.72rem;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -523,7 +524,8 @@ nav {
   text-overflow: ellipsis;
 }
 
-.summary-item.active label {
+.summary-item.active label,
+.summary-item.active .summary-label {
   color: var(--accent-blue);
   font-weight: 600;
 }

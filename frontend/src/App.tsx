@@ -944,8 +944,8 @@ function Dashboard() {
                  >
                    Inspect Filtered Conflict Records
                  </button>
-               )}              )}
-              <button className="action-btn" onClick={() => setSelectedConflict(null)}>Close</button>
+               )}
+               <button className="action-btn" onClick={() => setSelectedConflict(null)}>Close</button>
             </div>
           </div>
         </div>
@@ -979,18 +979,18 @@ function Dashboard() {
              <div className="analysis-grid">
                 <div className="analysis-col">
                     <div className="report-summary-strip" style={{margin: '0', width: '100%', justifyContent: 'space-around', alignItems: 'flex-start'}}>
-                        <div className={`summary-item is-interactive ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')} style={{cursor: 'pointer'}}>
-                          <label>Volume</label><span className="summary-value">{totalInRecords.toLocaleString()}</span>
-                        </div>
-                        <div className={`summary-item is-interactive ${filterType === 'spf' ? 'active' : ''}`} onClick={() => setFilterType('spf')} style={{cursor: 'pointer'}}>
-                          <label>SPF Fail</label><span className={`summary-value ${spfPassCount < totalInRecords ? 'text-red' : ''}`}>{totalInRecords - spfPassCount}</span>
-                        </div>
-                        <div className={`summary-item is-interactive ${filterType === 'dkim' ? 'active' : ''}`} onClick={() => setFilterType('dkim')} style={{cursor: 'pointer'}}>
-                          <label>DKIM Fail</label><span className={`summary-value ${dkimPassCount < totalInRecords ? 'text-orange' : ''}`}>{totalInRecords - dkimPassCount}</span>
-                        </div>
-                        <div className={`summary-item is-interactive ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer'}}>
-                          <label>Unauthorized</label><span className="summary-value text-red">{detailedRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
-                        </div>
+                        <button type="button" className={`summary-item is-interactive ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')} style={{cursor: 'pointer', background: 'none', border: '1px solid transparent', textAlign: 'left', font: 'inherit', padding: 0}}>
+                          <span className="summary-label">Volume</span><span className="summary-value">{totalInRecords.toLocaleString()}</span>
+                        </button>
+                        <button type="button" className={`summary-item is-interactive ${filterType === 'spf' ? 'active' : ''}`} onClick={() => setFilterType('spf')} style={{cursor: 'pointer', background: 'none', border: '1px solid transparent', textAlign: 'left', font: 'inherit', padding: 0}}>
+                          <span className="summary-label">SPF Fail</span><span className={`summary-value ${spfPassCount < totalInRecords ? 'text-red' : ''}`}>{totalInRecords - spfPassCount}</span>
+                        </button>
+                        <button type="button" className={`summary-item is-interactive ${filterType === 'dkim' ? 'active' : ''}`} onClick={() => setFilterType('dkim')} style={{cursor: 'pointer', background: 'none', border: '1px solid transparent', textAlign: 'left', font: 'inherit', padding: 0}}>
+                          <span className="summary-label">DKIM Fail</span><span className={`summary-value ${dkimPassCount < totalInRecords ? 'text-orange' : ''}`}>{totalInRecords - dkimPassCount}</span>
+                        </button>
+                        <button type="button" className={`summary-item is-interactive ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer', background: 'none', border: '1px solid transparent', textAlign: 'left', font: 'inherit', padding: 0}}>
+                          <span className="summary-label">Unauthorized</span><span className="summary-value text-red">{searchFilteredRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
+                        </button>
                         <div className="summary-item date-picker-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', minWidth: '240px' }}>
                           <label>Period</label>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
