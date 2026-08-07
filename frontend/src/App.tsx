@@ -324,15 +324,19 @@ function Dashboard() {
     setSortConfig({ key, direction });
   };
 
-  const processedRecords = useMemo(() => {
+  const searchFilteredRecords = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    let filtered = detailedRecords.filter(r => 
+    return detailedRecords.filter(r => 
       !q || 
       r.source_ip.toLowerCase().includes(q) || 
       r.org_name.toLowerCase().includes(q) ||
       (r as any).domain_name?.toLowerCase().includes(q) ||
       r.report_id?.toLowerCase().includes(q)
     );
+  }, [detailedRecords, searchQuery]);
+
+  const processedRecords = useMemo(() => {
+    let filtered = [...searchFilteredRecords];
     
     if (filterType === 'spf') filtered = filtered.filter(r => !r.spf_pass);
     if (filterType === 'dkim') filtered = filtered.filter(r => !r.dkim_pass);
@@ -348,13 +352,13 @@ function Dashboard() {
       });
     }
     return filtered;
-  }, [detailedRecords, searchQuery, sortConfig, filterType]);
+  }, [searchFilteredRecords, sortConfig, filterType]);
 
-  const totalInRecords = detailedRecords.reduce((acc, r) => acc + r.count, 0);
-  const spfPassCount = detailedRecords.filter(r => r.spf_pass).reduce((acc, r) => acc + r.count, 0);
-  const dkimPassCount = detailedRecords.filter(r => r.dkim_pass).reduce((acc, r) => acc + r.count, 0);
+  const totalInRecords = searchFilteredRecords.reduce((acc, r) => acc + r.count, 0);
+  const spfPassCount = searchFilteredRecords.filter(r => r.spf_pass).reduce((acc, r) => acc + r.count, 0);
+  const dkimPassCount = searchFilteredRecords.filter(r => r.dkim_pass).reduce((acc, r) => acc + r.count, 0);
   const reporterMap = new Map<string, {count: number, spfFail: number, dkimFail: number, lastDate: string}>();
-  detailedRecords.forEach(r => {
+  searchFilteredRecords.forEach(r => {
     const curr = reporterMap.get(r.org_name) || {count: 0, spfFail: 0, dkimFail: 0, lastDate: r.date};
     curr.count += r.count;
     if (!r.spf_pass) curr.spfFail += r.count;
@@ -362,7 +366,7 @@ function Dashboard() {
     if (new Date(r.date) > new Date(curr.lastDate)) curr.lastDate = r.date;
     reporterMap.set(r.org_name, curr);
   });
-  const reporters = [...reporterMap.entries()].filter(([name]) => name.toLowerCase().includes(searchQuery.toLowerCase())).sort((a, b) => b[1].count - a[1].count);
+  const reporters = [...reporterMap.entries()].sort((a, b) => b[1].count - a[1].count);
 
   const isAdmin = role === 'Admin';
   const isAnalyst = role === 'Analyst' || isAdmin;
