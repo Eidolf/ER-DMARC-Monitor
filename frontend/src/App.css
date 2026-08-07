@@ -483,6 +483,19 @@ nav {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: all 0.2s ease-in-out;
+}
+.summary-item:not(.date-picker-item):hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.summary-item:not(.date-picker-item).active {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
 }
 .summary-item:not(.date-picker-item) {
   height: 4.2rem;
@@ -498,6 +511,10 @@ nav {
   min-height: 2.2rem;
   display: flex;
   align-items: flex-end;
+}
+.summary-item.active label {
+  color: var(--accent-blue);
+  font-weight: 600;
 }
 .summary-item span {
   font-size: 1.5rem;
