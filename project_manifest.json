@@ -168,7 +168,7 @@
         },
         {
           "name": "get_dkim_status_heuristic",
-          "signature": "def get_dkim_status_heuristic(domain)",
+          "signature": "def get_dkim_status_heuristic(domain, db_selectors)",
           "description": ""
         }
       ]
@@ -600,29 +600,29 @@
   ],
   "frontend": {
     "components": {
-      "App": {
-        "file": "frontend/src/App.tsx",
-        "description": "Main application container and route controller"
-      },
-      "MFA": {
-        "file": "frontend/src/MFA.tsx",
-        "description": "Multi-Factor Authentication prompt and TOTP validation form"
-      },
-      "Login": {
-        "file": "frontend/src/Login.tsx",
-        "description": "Login view allowing Local and SSO (Entra ID) authentication"
+      "AuthContext": {
+        "file": "frontend/src/AuthContext.tsx",
+        "description": "Authentication Provider context for managing session state, login/logout actions"
       },
       "main": {
         "file": "frontend/src/main.tsx",
         "description": "UI component in main.tsx"
       },
-      "AuthContext": {
-        "file": "frontend/src/AuthContext.tsx",
-        "description": "Authentication Provider context for managing session state, login/logout actions"
+      "App": {
+        "file": "frontend/src/App.tsx",
+        "description": "Main application container and route controller"
+      },
+      "Login": {
+        "file": "frontend/src/Login.tsx",
+        "description": "Login view allowing Local and SSO (Entra ID) authentication"
       },
       "Settings": {
         "file": "frontend/src/Settings.tsx",
         "description": "System Settings interface for branding, MFA enforcement, SSO, and SMTP configurations"
+      },
+      "MFA": {
+        "file": "frontend/src/MFA.tsx",
+        "description": "Multi-Factor Authentication prompt and TOTP validation form"
       }
     },
     "hooks": {
