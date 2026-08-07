@@ -43,6 +43,12 @@ def sync_smtp_config(session: Session):
             pass
     
     domains = session.exec(select(SMTPListeningDomain).where(SMTPListeningDomain.is_active == True)).all()
+
+def normalize_end_date(end_date_str: str) -> datetime:
+    parsed_end = datetime.fromisoformat(end_date_str)
+    if parsed_end.time() == datetime.min.time():
+        parsed_end = datetime.combine(parsed_end.date(), datetime.max.time())
+    return parsed_end
     for d in domains:
         r_client.sadd("smtp:allowed:domains", d.domain_name.lower())
         recipients = session.exec(select(SMTPRecipient).where(SMTPRecipient.listening_domain_id == d.id, SMTPRecipient.is_active == True)).all()
@@ -753,7 +759,7 @@ def get_domains(
             start_dt = datetime.utcnow() - timedelta(days=30)
             
         if end_date:
-            end_dt = datetime.fromisoformat(end_date)
+            end_dt = normalize_end_date(end_date)
         else:
             end_dt = datetime.utcnow()
 
@@ -806,12 +812,14 @@ def get_domain_dns_details(
         if res_json:
             try:
                 details = json.loads(res_json)
-                for item in details:
-                    sel = item.get("selector")
-                    if sel:
-                        learned_selectors.add(sel)
-            except Exception:
-                pass
+                if isinstance(details, list):
+                    for item in details:
+                        if isinstance(item, dict):
+                            sel = item.get("selector")
+                            if sel:
+                                learned_selectors.add(sel)
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                traceback.print_exc()
 
     return {
         "spf": dns_utils.get_spf_record(domain.name),
@@ -851,10 +859,7 @@ def get_domain_records(
     if start_date:
         statement = statement.where(ReportMetadata.date_end >= datetime.fromisoformat(start_date))
     if end_date:
-        parsed_end = datetime.fromisoformat(end_date)
-        if parsed_end.time() == datetime.min.time():
-            parsed_end = datetime.combine(parsed_end.date(), datetime.max.time())
-        statement = statement.where(ReportMetadata.date_end <= parsed_end)
+        statement = statement.where(ReportMetadata.date_end <= normalize_end_date(end_date))
         
     statement = statement.order_by(ReportMetadata.date_end.desc())
     results = session.exec(statement).all()
@@ -892,10 +897,7 @@ def get_all_records(
     if start_date:
         statement = statement.where(ReportMetadata.date_end >= datetime.fromisoformat(start_date))
     if end_date:
-        parsed_end = datetime.fromisoformat(end_date)
-        if parsed_end.time() == datetime.min.time():
-            parsed_end = datetime.combine(parsed_end.date(), datetime.max.time())
-        statement = statement.where(ReportMetadata.date_end <= parsed_end)
+        statement = statement.where(ReportMetadata.date_end <= normalize_end_date(end_date))
         
     statement = statement.order_by(ReportMetadata.date_end.desc()).limit(2000)
     results = session.exec(statement).all()
@@ -943,7 +945,7 @@ def get_report_stats(
         statement = statement.where(ReportMetadata.date_end >= thirty_days_ago)
         
     if end_date:
-        statement = statement.where(ReportMetadata.date_end <= datetime.fromisoformat(end_date))
+        statement = statement.where(ReportMetadata.date_end <= normalize_end_date(end_date))
         
     records = session.exec(statement).all()
     total_analyzed = sum(r.count for r in records)

@@ -117,8 +117,13 @@ PROVIDER_SELECTOR_MAP = {
     "amazonses.com": ["7v7523u", "amazonses"]
 }
 
-def get_dkim_status_heuristic(domain, db_selectors=None):
-    cache_key = f"dns:dkim:{domain}"
+def get_dkim_status_heuristic(domain: str, db_selectors: list[str] | None = None) -> dict:
+    if db_selectors:
+        sorted_sels = ",".join(sorted(set(db_selectors)))
+        cache_key = f"dns:dkim:{domain}:learned:{sorted_sels}"
+    else:
+        cache_key = f"dns:dkim:{domain}"
+
     cached = r_cache.get(cache_key)
     if cached:
         return json.loads(cached)

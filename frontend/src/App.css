@@ -502,12 +502,12 @@ nav {
   flex: 0 0 auto;
 }
 
-.summary-item:not(.date-picker-item):hover {
+.summary-item.is-interactive:hover {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-.summary-item:not(.date-picker-item).active {
+.summary-item.is-interactive.active {
   background: rgba(59, 130, 246, 0.12);
   border-color: var(--accent-blue);
   box-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
@@ -528,7 +528,8 @@ nav {
   font-weight: 600;
 }
 
-.summary-item span {
+.summary-item > span.summary-value,
+.summary-item > span {
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1;

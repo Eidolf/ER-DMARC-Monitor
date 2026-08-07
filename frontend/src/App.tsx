@@ -59,6 +59,7 @@ interface DetailedRecord {
   spf_auth_details: any[];
   report_id: string;
   org_name: string;
+  domain_name?: string;
   date: string;
 }
 
@@ -330,7 +331,7 @@ function Dashboard() {
       !q || 
       r.source_ip.toLowerCase().includes(q) || 
       r.org_name.toLowerCase().includes(q) ||
-      (r as any).domain_name?.toLowerCase().includes(q) ||
+      r.domain_name?.toLowerCase().includes(q) ||
       r.report_id?.toLowerCase().includes(q)
     );
   }, [detailedRecords, searchQuery]);
@@ -774,160 +775,176 @@ function Dashboard() {
                       <label>Success</label>
                       <span>{uploadResults.filter(r => r.status === 'success').length}</span>
                     </div>
-                    <div 
-                      className="summary-item skipped" 
-                      style={{ cursor: 'pointer' }}
-                      title="Click to view skipped conflict details"
-                      onClick={() => {
-                        const firstSkipped = uploadResults.find(r => r.status === 'skipped');
-                        if (firstSkipped) setSelectedConflict(firstSkipped);
-                      }}
-                    >
-                      <label>Skipped (Conflicts)</label>
-                      <span>{uploadResults.filter(r => r.status === 'skipped').length}</span>
-                    </div>
+                    {uploadResults.some(r => r.status === 'skipped') ? (
+                      <button 
+                        className="summary-item skipped is-interactive" 
+                        style={{ cursor: 'pointer', background: 'none', border: '1px solid transparent', textAlign: 'left', font: 'inherit', padding: 0 }}
+                        title="Click to view skipped conflict details"
+                        onClick={() => {
+                          const firstSkipped = uploadResults.find(r => r.status === 'skipped');
+                          if (firstSkipped) setSelectedConflict(firstSkipped);
+                        }}
+                      >
+                        <label>Skipped (Conflicts)</label>
+                        <span className="summary-value">{uploadResults.filter(r => r.status === 'skipped').length}</span>
+                      </button>
+                    ) : (
+                      <div className="summary-item skipped">
+                        <label>Skipped (Conflicts)</label>
+                        <span className="summary-value">0</span>
+                      </div>
+                    )}
                     <div className="summary-item error">
                       <label>Errors</label>
                       <span>{uploadResults.filter(r => r.status === 'error').length}</span>
                     </div>
-                 </div>
-                 <div className="scroll-box" style={{maxHeight: '350px', marginTop: '1rem'}}>
-                    <table className="modern-table mini">
-                      <thead><tr><th style={{ width: '50%' }}>Filename</th><th style={{ width: '20%' }}>Status</th><th style={{ width: '30%' }}>Details</th></tr></thead>
-                      <tbody>
-                        {uploadResults.map((res, i) => (
-                          <tr 
-                            key={i} 
-                            style={{ cursor: res.report_details ? 'pointer' : 'default' }}
-                            onClick={() => { if (res.report_details) setSelectedConflict(res); }}
-                          >
-                            <td style={{fontSize: '0.8rem', wordBreak: 'break-all'}}>{res.filename}</td>
-                            <td>
-                              <span className={`status-tag status-${res.status}`}>
-                                {res.status.toUpperCase()}
-                              </span>
-                            </td>
-                            <td style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>
-                              {res.status === 'skipped' ? (
-                                <span style={{ color: '#3b82f6', textDecoration: 'underline' }}>View Conflict Info</span>
-                              ) : res.detail || '-'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                 </div>
-                 <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={closeUpload}>Close Summary</button>
-               </div>
-             )}
-          </div>
-        </div>
-      )}
-
-      {selectedConflict && (
-        <div className="modal-overlay secondary-modal" onClick={() => setSelectedConflict(null)}>
-          <div className="modal-content glass-card" style={{maxWidth: '650px'}} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Upload Conflict Details</h3>
-              <button className="close-btn" onClick={() => setSelectedConflict(null)}>×</button>
-            </div>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-              <div className="insight-card" style={{ margin: 0, borderLeft: '4px solid #f59e0b' }}>
-                <p><strong>Conflict Status:</strong> Skipped (Already in Database)</p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
-                  File <code>{selectedConflict.filename}</code> contains a DMARC report ID that is already registered in your database.
-                </p>
-              </div>
-
-              {selectedConflict.report_details ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div className="enrichment-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                    <div className="enrich-item">
-                      <label>Reporter / Organization</label>
-                      <span>{selectedConflict.report_details.org_name || 'N/A'}</span>
-                    </div>
-                    <div className="enrich-item">
-                      <label>Report ID</label>
-                      <span style={{ fontSize: '0.85rem', wordBreak: 'break-all' }}>{selectedConflict.report_details.report_id || 'N/A'}</span>
-                    </div>
-                    <div className="enrich-item">
-                      <label>Target Domain</label>
-                      <span>{selectedConflict.report_details.domain_name || 'N/A'}</span>
-                    </div>
-                    <div className="enrich-item">
-                      <label>Report Period</label>
-                      <span>
-                        {selectedConflict.report_details.date_begin ? formatDate(selectedConflict.report_details.date_begin) : 'N/A'} - {selectedConflict.report_details.date_end ? formatDate(selectedConflict.report_details.date_end) : 'N/A'}
-                      </span>
-                    </div>
                   </div>
-
-                  <div>
-                    <h4 style={{ marginBottom: '0.5rem' }}>Reported Source IPs</h4>
-                    {selectedConflict.report_details.source_ips && selectedConflict.report_details.source_ips.length > 0 ? (
-                      <div className="scroll-box" style={{ maxHeight: '180px' }}>
-                        <table className="modern-table mini">
-                          <thead>
-                            <tr>
-                              <th>Source IP</th>
-                              <th>Message Count</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedConflict.report_details.source_ips.map((ipInfo, idx) => (
-                              <tr 
-                                key={idx} 
-                                style={{ cursor: 'pointer' }}
-                                title="Click to inspect this specific IP"
-                                onClick={() => {
-                                  const domain = selectedConflict.report_details?.domain_name;
-                                  const dateBegin = selectedConflict.report_details?.date_begin?.split('T')[0];
-                                  const dateEnd = selectedConflict.report_details?.date_end?.split('T')[0];
-                                  const dateRange = (dateBegin && dateEnd) ? { start: dateBegin, end: dateEnd } : undefined;
-                                  
-                                  setSelectedConflict(null);
-                                  setUploadOpen(false);
-                                  if (domain) handleInspect(domain, 'all', ipInfo.ip, dateRange);
-                                }}
-                              >
-                                <td><code>{ipInfo.ip}</code></td>
-                                <td>{ipInfo.count}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="hint-text">No individual IP records found in file.</p>
-                    )}
+                  <div className="scroll-box" style={{maxHeight: '350px', marginTop: '1rem'}}>
+                     <table className="modern-table mini">
+                       <thead><tr><th style={{ width: '50%' }}>Filename</th><th style={{ width: '20%' }}>Status</th><th style={{ width: '30%' }}>Details</th></tr></thead>
+                       <tbody>
+                         {uploadResults.map((res, i) => (
+                           <tr key={i}>
+                             <td style={{fontSize: '0.8rem', wordBreak: 'break-all'}}>{res.filename}</td>
+                             <td>
+                               <span className={`status-tag status-${res.status}`}>
+                                 {res.status.toUpperCase()}
+                               </span>
+                             </td>
+                             <td style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>
+                               {res.status === 'skipped' ? (
+                                 <button 
+                                   className="action-btn small-btn" 
+                                   style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                                   onClick={() => setSelectedConflict(res)}
+                                 >
+                                   View Conflict Info
+                                 </button>
+                               ) : res.detail || '-'}
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
                   </div>
+                  <button className="action-btn" style={{marginTop: '1.5rem', width: '100%'}} onClick={closeUpload}>Close Summary</button>
                 </div>
-              ) : (
-                <p>No additional details available for this report.</p>
               )}
-            </div>
-            <div className="modal-footer" style={{marginTop: '1.5rem', borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-              {selectedConflict.report_details?.domain_name && (
-                <button 
-                  className="action-btn primary-btn"
-                  onClick={() => {
-                    const domain = selectedConflict.report_details?.domain_name;
-                    const firstIp = selectedConflict.report_details?.source_ips?.[0]?.ip;
-                    const org = selectedConflict.report_details?.org_name || '';
-                    const filterQuery = firstIp || org;
-                    
-                    const dateBegin = selectedConflict.report_details?.date_begin?.split('T')[0];
-                    const dateEnd = selectedConflict.report_details?.date_end?.split('T')[0];
-                    const dateRange = (dateBegin && dateEnd) ? { start: dateBegin, end: dateEnd } : undefined;
-                    
-                    setSelectedConflict(null);
-                    setUploadOpen(false);
-                    if (domain) handleInspect(domain, 'all', filterQuery, dateRange);
-                  }}
-                >
-                  Inspect Filtered Conflict Records
-                </button>
-              )}
+           </div>
+         </div>
+       )}
+
+       {selectedConflict && (
+         <div className="modal-overlay secondary-modal" onClick={() => setSelectedConflict(null)}>
+           <div className="modal-content glass-card" style={{maxWidth: '650px'}} onClick={e => e.stopPropagation()}>
+             <div className="modal-header">
+               <h3>Upload Conflict Details</h3>
+               <button className="close-btn" onClick={() => setSelectedConflict(null)}>×</button>
+             </div>
+             <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+               <div className="insight-card" style={{ margin: 0, borderLeft: '4px solid #f59e0b' }}>
+                 <p><strong>Conflict Status:</strong> Skipped (Already in Database)</p>
+                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                   File <code>{selectedConflict.filename}</code> contains a DMARC report ID that is already registered in your database.
+                 </p>
+               </div>
+
+               {selectedConflict.report_details ? (
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                   <div className="enrichment-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                     <div className="enrich-item">
+                       <label>Reporter / Organization</label>
+                       <span>{selectedConflict.report_details.org_name || 'N/A'}</span>
+                     </div>
+                     <div className="enrich-item">
+                       <label>Report ID</label>
+                       <span style={{ fontSize: '0.85rem', wordBreak: 'break-all' }}>{selectedConflict.report_details.report_id || 'N/A'}</span>
+                     </div>
+                     <div className="enrich-item">
+                       <label>Target Domain</label>
+                       <span>{selectedConflict.report_details.domain_name || 'N/A'}</span>
+                     </div>
+                     <div className="enrich-item">
+                       <label>Report Period</label>
+                       <span>
+                         {selectedConflict.report_details.date_begin ? formatDate(selectedConflict.report_details.date_begin) : 'N/A'} - {selectedConflict.report_details.date_end ? formatDate(selectedConflict.report_details.date_end) : 'N/A'}
+                       </span>
+                     </div>
+                   </div>
+
+                   <div>
+                     <h4 style={{ marginBottom: '0.5rem' }}>Reported Source IPs</h4>
+                     {selectedConflict.report_details.source_ips && selectedConflict.report_details.source_ips.length > 0 ? (
+                       <div className="scroll-box" style={{ maxHeight: '180px' }}>
+                         <table className="modern-table mini">
+                           <thead>
+                             <tr>
+                               <th>Source IP</th>
+                               <th>Message Count</th>
+                               <th>Action</th>
+                             </tr>
+                           </thead>
+                           <tbody>
+                             {selectedConflict.report_details.source_ips.map((ipInfo, idx) => (
+                               <tr key={idx}>
+                                 <td><code>{ipInfo.ip}</code></td>
+                                 <td>{ipInfo.count}</td>
+                                 <td>
+                                   <button 
+                                     className="action-btn small-btn"
+                                     style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                                     title="Click to inspect this specific IP"
+                                     onClick={() => {
+                                       const domain = selectedConflict.report_details?.domain_name;
+                                       const dateBegin = selectedConflict.report_details?.date_begin?.split('T')[0];
+                                       const dateEnd = selectedConflict.report_details?.date_end?.split('T')[0];
+                                       const dateRange = (dateBegin && dateEnd) ? { start: dateBegin, end: dateEnd } : undefined;
+                                       
+                                       setSelectedConflict(null);
+                                       setUploadOpen(false);
+                                       if (domain) handleInspect(domain, 'all', ipInfo.ip, dateRange);
+                                     }}
+                                   >
+                                     Inspect IP
+                                   </button>
+                                 </td>
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                       </div>
+                     ) : (
+                       <p className="hint-text">No individual IP records found in file.</p>
+                     )}
+                   </div>
+                 </div>
+               ) : (
+                 <p>No additional details available for this report.</p>
+               )}
+             </div>
+             <div className="modal-footer" style={{marginTop: '1.5rem', borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+               {selectedConflict.report_details?.domain_name && (
+                 <button 
+                   className="action-btn primary-btn"
+                   onClick={() => {
+                     const domain = selectedConflict.report_details?.domain_name;
+                     const reportId = selectedConflict.report_details?.report_id;
+                     const firstIp = selectedConflict.report_details?.source_ips?.[0]?.ip;
+                     const org = selectedConflict.report_details?.org_name || '';
+                     const filterQuery = reportId || firstIp || org;
+                     
+                     const dateBegin = selectedConflict.report_details?.date_begin?.split('T')[0];
+                     const dateEnd = selectedConflict.report_details?.date_end?.split('T')[0];
+                     const dateRange = (dateBegin && dateEnd) ? { start: dateBegin, end: dateEnd } : undefined;
+                     
+                     setSelectedConflict(null);
+                     setUploadOpen(false);
+                     if (domain) handleInspect(domain, 'all', filterQuery, dateRange);
+                   }}
+                 >
+                   Inspect Filtered Conflict Records
+                 </button>
+               )}              )}
               <button className="action-btn" onClick={() => setSelectedConflict(null)}>Close</button>
             </div>
           </div>
@@ -962,17 +979,17 @@ function Dashboard() {
              <div className="analysis-grid">
                 <div className="analysis-col">
                     <div className="report-summary-strip" style={{margin: '0', width: '100%', justifyContent: 'space-around', alignItems: 'flex-start'}}>
-                        <div className={`summary-item ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')} style={{cursor: 'pointer'}}>
-                          <label>Volume</label><span>{totalInRecords.toLocaleString()}</span>
+                        <div className={`summary-item is-interactive ${filterType === 'all' ? 'active' : ''}`} onClick={() => setFilterType('all')} style={{cursor: 'pointer'}}>
+                          <label>Volume</label><span className="summary-value">{totalInRecords.toLocaleString()}</span>
                         </div>
-                        <div className={`summary-item ${filterType === 'spf' ? 'active' : ''}`} onClick={() => setFilterType('spf')} style={{cursor: 'pointer'}}>
-                          <label>SPF Fail</label><span className={spfPassCount < totalInRecords ? 'text-red' : ''}>{totalInRecords - spfPassCount}</span>
+                        <div className={`summary-item is-interactive ${filterType === 'spf' ? 'active' : ''}`} onClick={() => setFilterType('spf')} style={{cursor: 'pointer'}}>
+                          <label>SPF Fail</label><span className={`summary-value ${spfPassCount < totalInRecords ? 'text-red' : ''}`}>{totalInRecords - spfPassCount}</span>
                         </div>
-                        <div className={`summary-item ${filterType === 'dkim' ? 'active' : ''}`} onClick={() => setFilterType('dkim')} style={{cursor: 'pointer'}}>
-                          <label>DKIM Fail</label><span className={dkimPassCount < totalInRecords ? 'text-orange' : ''}>{totalInRecords - dkimPassCount}</span>
+                        <div className={`summary-item is-interactive ${filterType === 'dkim' ? 'active' : ''}`} onClick={() => setFilterType('dkim')} style={{cursor: 'pointer'}}>
+                          <label>DKIM Fail</label><span className={`summary-value ${dkimPassCount < totalInRecords ? 'text-orange' : ''}`}>{totalInRecords - dkimPassCount}</span>
                         </div>
-                        <div className={`summary-item ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer'}}>
-                          <label>Unauthorized</label><span className="text-red">{detailedRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
+                        <div className={`summary-item is-interactive ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer'}}>
+                          <label>Unauthorized</label><span className="summary-value text-red">{detailedRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
                         </div>
                         <div className="summary-item date-picker-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', minWidth: '240px' }}>
                           <label>Period</label>
@@ -1003,7 +1020,7 @@ function Dashboard() {
                           </div>
                         </div>
                         <div className="summary-item">
-                          <label>Health</label><span>{totalInRecords > 0 ? Math.round(((spfPassCount + dkimPassCount) / (2 * totalInRecords)) * 100) : 0}%</span>
+                          <label>Health</label><span className="summary-value">{totalInRecords > 0 ? Math.round(((spfPassCount + dkimPassCount) / (2 * totalInRecords)) * 100) : 0}%</span>
                         </div>
                       </div>
                     <div className="scroll-box" style={{marginTop: '1rem', minHeight: '450px'}}>
