@@ -804,10 +804,9 @@ def refresh_all_dns(
     session: Session = Depends(get_session),
     user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.ANALYST]))
 ) -> dict:
-    domains = session.exec(select(Domain)).all()
-    # Limit max domain refreshes per request to prevent unbounded work
     max_domains = 50
-    domains_to_process = domains[:max_domains]
+    total_domains = session.exec(select(func.count(Domain.id))).one()
+    domains_to_process = session.exec(select(Domain).limit(max_domains)).all()
     failed_domains = []
     
     for d in domains_to_process:
@@ -829,7 +828,7 @@ def refresh_all_dns(
             failed_domains.append({"domain": d.name, "error": str(e)})
 
     session.commit()
-    res = {"status": "refreshed", "processed": len(domains_to_process), "total": len(domains)}
+    res = {"status": "refreshed", "processed": len(domains_to_process), "total": total_domains}
     if failed_domains:
         res["failures"] = failed_domains
     return res

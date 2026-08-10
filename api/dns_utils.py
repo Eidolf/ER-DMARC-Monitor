@@ -10,6 +10,8 @@ COMMON_DKIM_SELECTORS = [
     "default", "google", "mail", "dkim", "smtp", "mta", "selector1", "k1", "mandrill", "s1", "s2"
 ]
 
+import traceback
+
 def query_txt(name):
     try:
         resolver = dns.resolver.Resolver()
@@ -17,8 +19,11 @@ def query_txt(name):
         resolver.lifetime = 4.0
         answers = resolver.resolve(name, 'TXT')
         return [str(txt).strip('"') for txt in answers]
-    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, Exception):
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.NoNameservers):
         return []
+    except Exception:
+        traceback.print_exc()
+        raise
 
 def get_spf_record(domain):
     cache_key = f"dns:spf:{domain}"
@@ -98,10 +103,9 @@ def get_dmarc_record(domain: str) -> dict:
     records = query_txt(f"_dmarc.{domain}")
     dmarc_records = [r for r in records if r.startswith("v=DMARC1")]
     
-    parsed_policy = "none"
+    parsed_policy = None
     external_destinations = []
     
-    # Per RFC 7489, if zero or multiple DMARC records exist, the domain is considered unconfigured / invalid.
     if len(dmarc_records) == 1:
         tags = [t.strip() for t in dmarc_records[0].split(';') if t.strip()]
         for tag in tags:
@@ -115,9 +119,10 @@ def get_dmarc_record(domain: str) -> dict:
 
         external_destinations = check_external_dmarc_authorization(domain, dmarc_records[0])
 
+    is_valid = (len(dmarc_records) == 1 and parsed_policy is not None)
     result = {
-        "status": "Set" if len(dmarc_records) == 1 else "Not Set",
-        "policy": parsed_policy if len(dmarc_records) == 1 else "none",
+        "status": "Set" if is_valid else "Not Set",
+        "policy": parsed_policy if is_valid else "none",
         "records": dmarc_records,
         "external_destinations": external_destinations
     }
