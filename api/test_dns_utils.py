@@ -41,10 +41,18 @@ class TestDMARCParsing(unittest.TestCase):
     @patch('dns_utils.query_txt')
     def test_invalid_or_missing_p_tag(self, mock_query: MagicMock, mock_cache: MagicMock) -> None:
         mock_cache.get.return_value = None
+        
+        # Case 1: Invalid policy value
         mock_query.return_value = ["v=DMARC1; p=invalid_policy; rua=mailto:dmarc@example.com"]
         res = dns_utils.get_dmarc_record("example.com")
         self.assertEqual(res["status"], "Not Set")
         self.assertEqual(res["policy"], "none")
+
+        # Case 2: Missing p tag
+        mock_query.return_value = ["v=DMARC1; rua=mailto:dmarc@example.com"]
+        res_missing = dns_utils.get_dmarc_record("example.com")
+        self.assertEqual(res_missing["status"], "Not Set")
+        self.assertEqual(res_missing["policy"], "none")
 
 if __name__ == "__main__":
     unittest.main()
