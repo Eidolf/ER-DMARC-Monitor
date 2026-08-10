@@ -776,19 +776,46 @@ def get_domains(
             ReportMetadata.date_end <= end_dt
         )).one() or 0
             
+        dmarc_data = json.loads(dmarc) if dmarc else None
+        live_policy = dmarc_data.get("policy") if dmarc_data and "policy" in dmarc_data else d.dmarc_policy
+
+        if dmarc_data and dmarc_data.get("policy") and d.dmarc_policy != dmarc_data.get("policy"):
+            d.dmarc_policy = dmarc_data.get("policy")
+            session.add(d)
+            session.commit()
+            session.refresh(d)
+            
         results.append({
             "id": d.id,
             "name": d.name,
-            "dmarc_policy": d.dmarc_policy,
+            "dmarc_policy": live_policy or "none",
             "spf_fail_count": spf_fails,
             "dkim_fail_count": dkim_fails,
             "dns_summary": {
                 "spf": json.loads(spf)["status"] if spf else "Loading...",
                 "dkim": json.loads(dkim)["status"] if dkim else "Loading...",
-                "dmarc": json.loads(dmarc)["status"] if dmarc else "Loading..."
+                "dmarc": dmarc_data["status"] if dmarc_data else "Loading..."
             }
         })
     return results
+
+@app.post("/domains/refresh-dns")
+def refresh_all_dns(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    domains = session.exec(select(Domain)).all()
+    for d in domains:
+        dns_utils.r_cache.delete(f"dns:spf:{d.name}")
+        dns_utils.r_cache.delete(f"dns:dkim:{d.name}")
+        dns_utils.r_cache.delete(f"dns:dmarc:{d.name}")
+        refresh_domain_dns(d.name)
+        dmarc_data = dns_utils.get_dmarc_record(d.name)
+        if dmarc_data and dmarc_data.get("policy"):
+            d.dmarc_policy = dmarc_data.get("policy")
+            session.add(d)
+    session.commit()
+    return {"status": "refreshed"}
 
 @app.get("/domains/{domain_id}/dns")
 def get_domain_dns_details(
@@ -821,9 +848,16 @@ def get_domain_dns_details(
             except (json.JSONDecodeError, TypeError, AttributeError):
                 traceback.print_exc()
 
+    dmarc_res = dns_utils.get_dmarc_record(domain.name)
+    if dmarc_res and dmarc_res.get("policy") and domain.dmarc_policy != dmarc_res.get("policy"):
+        domain.dmarc_policy = dmarc_res.get("policy")
+        session.add(domain)
+        session.commit()
+        session.refresh(domain)
+
     return {
         "spf": dns_utils.get_spf_record(domain.name),
-        "dmarc": dns_utils.get_dmarc_record(domain.name),
+        "dmarc": dmarc_res,
         "dkim": dns_utils.get_dkim_status_heuristic(domain.name, db_selectors=list(learned_selectors))
     }
 

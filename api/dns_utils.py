@@ -95,12 +95,20 @@ def get_dmarc_record(domain):
     records = query_txt(f"_dmarc.{domain}")
     dmarc_records = [r for r in records if r.startswith("v=DMARC1")]
     
+    parsed_policy = "none"
+    if dmarc_records:
+        import re
+        match = re.search(r'\bp\s*=\s*([a-zA-Z0-9_-]+)', dmarc_records[0], re.IGNORECASE)
+        if match:
+            parsed_policy = match.group(1).lower()
+
     external_destinations = []
     if dmarc_records:
         external_destinations = check_external_dmarc_authorization(domain, dmarc_records[0])
 
     result = {
         "status": "Set" if dmarc_records else "Not Set",
+        "policy": parsed_policy if dmarc_records else "none",
         "records": dmarc_records,
         "external_destinations": external_destinations
     }
