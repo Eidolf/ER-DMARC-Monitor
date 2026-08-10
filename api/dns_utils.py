@@ -10,12 +10,20 @@ COMMON_DKIM_SELECTORS = [
     "default", "google", "mail", "dkim", "smtp", "mta", "selector1", "k1", "mandrill", "s1", "s2"
 ]
 
+import traceback
+
 def query_txt(name):
     try:
-        answers = dns.resolver.resolve(name, 'TXT')
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 2.0
+        resolver.lifetime = 4.0
+        answers = resolver.resolve(name, 'TXT')
         return [str(txt).strip('"') for txt in answers]
-    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, Exception):
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.NoNameservers):
         return []
+    except Exception:
+        traceback.print_exc()
+        raise
 
 def get_spf_record(domain):
     cache_key = f"dns:spf:{domain}"
@@ -86,7 +94,7 @@ def check_external_dmarc_authorization(source_domain, dmarc_record):
         })
     return auth_results
 
-def get_dmarc_record(domain):
+def get_dmarc_record(domain: str) -> dict:
     cache_key = f"dns:dmarc:{domain}"
     cached = r_cache.get(cache_key)
     if cached:
@@ -95,12 +103,26 @@ def get_dmarc_record(domain):
     records = query_txt(f"_dmarc.{domain}")
     dmarc_records = [r for r in records if r.startswith("v=DMARC1")]
     
+    parsed_policy = None
     external_destinations = []
-    if dmarc_records:
+    
+    if len(dmarc_records) == 1:
+        tags = [t.strip() for t in dmarc_records[0].split(';') if t.strip()]
+        for tag in tags:
+            if '=' in tag:
+                k, v = tag.split('=', 1)
+                if k.strip().lower() == 'p':
+                    pol = v.strip().lower()
+                    if pol in ("none", "quarantine", "reject"):
+                        parsed_policy = pol
+                    break
+
         external_destinations = check_external_dmarc_authorization(domain, dmarc_records[0])
 
+    is_valid = (len(dmarc_records) == 1 and parsed_policy is not None)
     result = {
-        "status": "Set" if dmarc_records else "Not Set",
+        "status": "Set" if is_valid else "Not Set",
+        "policy": parsed_policy if is_valid else "none",
         "records": dmarc_records,
         "external_destinations": external_destinations
     }

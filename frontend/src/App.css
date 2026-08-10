@@ -340,8 +340,8 @@ nav {
   border: 1px solid transparent;
 }
 .policy-reject { background: rgba(34, 197, 94, 0.1); color: #4ade80; border-color: rgba(74, 222, 128, 0.2); }
-.policy-quarantine { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border-color: rgba(251, 191, 36, 0.2); }
-.policy-none { background: rgba(239, 68, 68, 0.1); color: #f87171; border-color: rgba(248, 113, 113, 0.2); }
+.policy-quarantine { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); }
+.policy-none { background: rgba(239, 68, 68, 0.15); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
 
 /* Modal Settings styling */
 .delete-btn {

@@ -218,6 +218,8 @@ function Dashboard() {
     });
   };
 
+  const [isRefreshingDns, setIsRefreshingDns] = useState(false);
+
   const loadData = () => {
     authFetch(`/api/domains?start_date=${dateFilter.start}&end_date=${dateFilter.end}`).then(res => res.json()).then(json => setData(Array.isArray(json) ? json : [])).catch(err => console.error(err));
     authFetch(`/api/reports/stats?start_date=${dateFilter.start}&end_date=${dateFilter.end}`)
@@ -226,6 +228,25 @@ function Dashboard() {
       .catch(err => console.error(err));
     fetch('/api/settings/branding').then(res => res.json()).then(json => setSettings(json)).catch(err => console.error(err));
     authFetch('/api/auth/me').then(res => res.json()).then(json => setCurrentUser(json)).catch(err => console.error(err));
+  };
+
+  const handleRefreshDns = () => {
+    setIsRefreshingDns(true);
+    authFetch('/api/domains/refresh-dns', { method: 'POST' })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`DNS refresh failed: ${res.statusText}`);
+        }
+        return res.json();
+      })
+      .then(() => {
+        loadData();
+        if (dnsModal) {
+          handleOpenDnsModal(dnsModal.domainId, dnsModal.domainName, dnsModal.type);
+        }
+      })
+      .catch(err => console.error(err))
+      .finally(() => setIsRefreshingDns(false));
   };
 
   const handleResetFilter = () => {
@@ -465,7 +486,21 @@ function Dashboard() {
           </section>
           <section className="domains-section">
             <div className="glass-card full-width">
-              <div className="card-header"><h3>Monitored Domains</h3></div>
+              <div className="card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <h3>Monitored Domains</h3>
+                <button 
+                  className="action-btn" 
+                  onClick={handleRefreshDns} 
+                  disabled={isRefreshingDns}
+                  style={{display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: isRefreshingDns ? 'not-allowed' : 'pointer'}}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation: isRefreshingDns ? 'spin 1s linear infinite' : 'none'}}>
+                    <path d="M21.5 2v6h-6M2.5 22v-6h6"/>
+                    <path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16"/>
+                  </svg>
+                  {isRefreshingDns ? 'Refreshing DNS...' : 'Refresh DNS'}
+                </button>
+              </div>
               <table className="modern-table">
                 <thead><tr><th>Domain Name</th><th>Failures (Filtered)</th><th>SPF Record</th><th>DMARC Policy</th><th>DKIM Status</th><th>Actions</th></tr></thead>
                 <tbody>{data.map((domain) => (
@@ -512,8 +547,22 @@ function Dashboard() {
               {dnsModal && (
                 <div className="modal-overlay" onClick={() => setDnsModal(null)}>
                   <div className="modal-content glass-card" style={{maxWidth: '600px'}} onClick={e => e.stopPropagation()}>
-                    <div className="modal-header">
-                      <h3>DNS Inspection: {dnsModal.domainName}</h3>
+                    <div className="modal-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}>
+                        <h3 style={{margin: 0}}>DNS Inspection: {dnsModal.domainName}</h3>
+                        <button 
+                          className="action-btn" 
+                          onClick={handleRefreshDns} 
+                          disabled={isRefreshingDns || dnsLoading}
+                          style={{display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', padding: '2px 8px'}}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation: isRefreshingDns ? 'spin 1s linear infinite' : 'none'}}>
+                            <path d="M21.5 2v6h-6M2.5 22v-6h6"/>
+                            <path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16"/>
+                          </svg>
+                          {isRefreshingDns ? 'Refreshing...' : 'Refresh'}
+                        </button>
+                      </div>
                       <button className="close-btn" onClick={() => setDnsModal(null)}>×</button>
                     </div>
                     <div className="modal-body">
