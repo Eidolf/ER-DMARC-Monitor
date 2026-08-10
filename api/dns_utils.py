@@ -96,7 +96,10 @@ def get_dmarc_record(domain: str) -> dict:
     dmarc_records = [r for r in records if r.startswith("v=DMARC1")]
     
     parsed_policy = "none"
-    if dmarc_records:
+    external_destinations = []
+    
+    # Per RFC 7489, if zero or multiple DMARC records exist, the domain is considered unconfigured / invalid.
+    if len(dmarc_records) == 1:
         tags = [t.strip() for t in dmarc_records[0].split(';') if t.strip()]
         for tag in tags:
             if '=' in tag:
@@ -107,13 +110,11 @@ def get_dmarc_record(domain: str) -> dict:
                         parsed_policy = pol
                     break
 
-    external_destinations = []
-    if dmarc_records:
         external_destinations = check_external_dmarc_authorization(domain, dmarc_records[0])
 
     result = {
-        "status": "Set" if dmarc_records else "Not Set",
-        "policy": parsed_policy if dmarc_records else "none",
+        "status": "Set" if len(dmarc_records) == 1 else "Not Set",
+        "policy": parsed_policy if len(dmarc_records) == 1 else "none",
         "records": dmarc_records,
         "external_destinations": external_destinations
     }
