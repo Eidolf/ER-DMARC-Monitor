@@ -805,21 +805,34 @@ def refresh_all_dns(
     user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.ANALYST]))
 ) -> dict:
     domains = session.exec(select(Domain)).all()
-    for d in domains:
-        dns_utils.r_cache.delete(f"dns:spf:{d.name}")
-        dns_utils.r_cache.delete(f"dns:dkim:{d.name}")
-        dns_utils.r_cache.delete(f"dns:dmarc:{d.name}")
-        # Invalidate learned DKIM selector keys
-        learned_keys = dns_utils.r_cache.keys(f"dns:dkim:{d.name}:learned:*")
-        if learned_keys:
-            dns_utils.r_cache.delete(*learned_keys)
-        refresh_domain_dns(d.name)
-        dmarc_data = dns_utils.get_dmarc_record(d.name)
-        if dmarc_data and dmarc_data.get("policy"):
-            d.dmarc_policy = dmarc_data.get("policy")
-            session.add(d)
+    # Limit max domain refreshes per request to prevent unbounded work
+    max_domains = 50
+    domains_to_process = domains[:max_domains]
+    failed_domains = []
+    
+    for d in domains_to_process:
+        try:
+            dns_utils.r_cache.delete(f"dns:spf:{d.name}")
+            dns_utils.r_cache.delete(f"dns:dkim:{d.name}")
+            dns_utils.r_cache.delete(f"dns:dmarc:{d.name}")
+            # Invalidate learned DKIM selector keys
+            learned_keys = dns_utils.r_cache.keys(f"dns:dkim:{d.name}:learned:*")
+            if learned_keys:
+                dns_utils.r_cache.delete(*learned_keys)
+            refresh_domain_dns(d.name)
+            dmarc_data = dns_utils.get_dmarc_record(d.name)
+            if dmarc_data and dmarc_data.get("policy"):
+                d.dmarc_policy = dmarc_data.get("policy")
+                session.add(d)
+        except Exception as e:
+            traceback.print_exc()
+            failed_domains.append({"domain": d.name, "error": str(e)})
+
     session.commit()
-    return {"status": "refreshed"}
+    res = {"status": "refreshed", "processed": len(domains_to_process), "total": len(domains)}
+    if failed_domains:
+        res["failures"] = failed_domains
+    return res
 
 @app.get("/domains/{domain_id}/dns")
 def get_domain_dns_details(

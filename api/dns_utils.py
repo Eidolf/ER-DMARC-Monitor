@@ -12,7 +12,10 @@ COMMON_DKIM_SELECTORS = [
 
 def query_txt(name):
     try:
-        answers = dns.resolver.resolve(name, 'TXT')
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 2.0
+        resolver.lifetime = 4.0
+        answers = resolver.resolve(name, 'TXT')
         return [str(txt).strip('"') for txt in answers]
     except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, Exception):
         return []
