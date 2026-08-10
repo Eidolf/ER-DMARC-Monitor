@@ -802,13 +802,17 @@ def get_domains(
 @app.post("/domains/refresh-dns")
 def refresh_all_dns(
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
-):
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.ANALYST]))
+) -> dict:
     domains = session.exec(select(Domain)).all()
     for d in domains:
         dns_utils.r_cache.delete(f"dns:spf:{d.name}")
         dns_utils.r_cache.delete(f"dns:dkim:{d.name}")
         dns_utils.r_cache.delete(f"dns:dmarc:{d.name}")
+        # Invalidate learned DKIM selector keys
+        learned_keys = dns_utils.r_cache.keys(f"dns:dkim:{d.name}:learned:*")
+        if learned_keys:
+            dns_utils.r_cache.delete(*learned_keys)
         refresh_domain_dns(d.name)
         dmarc_data = dns_utils.get_dmarc_record(d.name)
         if dmarc_data and dmarc_data.get("policy"):

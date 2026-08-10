@@ -233,7 +233,12 @@ function Dashboard() {
   const handleRefreshDns = () => {
     setIsRefreshingDns(true);
     authFetch('/api/domains/refresh-dns', { method: 'POST' })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`DNS refresh failed: ${res.statusText}`);
+        }
+        return res.json();
+      })
       .then(() => {
         loadData();
         if (dnsModal) {

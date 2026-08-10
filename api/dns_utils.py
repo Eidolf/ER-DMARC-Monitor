@@ -86,7 +86,7 @@ def check_external_dmarc_authorization(source_domain, dmarc_record):
         })
     return auth_results
 
-def get_dmarc_record(domain):
+def get_dmarc_record(domain: str) -> dict:
     cache_key = f"dns:dmarc:{domain}"
     cached = r_cache.get(cache_key)
     if cached:
@@ -97,10 +97,15 @@ def get_dmarc_record(domain):
     
     parsed_policy = "none"
     if dmarc_records:
-        import re
-        match = re.search(r'\bp\s*=\s*([a-zA-Z0-9_-]+)', dmarc_records[0], re.IGNORECASE)
-        if match:
-            parsed_policy = match.group(1).lower()
+        tags = [t.strip() for t in dmarc_records[0].split(';') if t.strip()]
+        for tag in tags:
+            if '=' in tag:
+                k, v = tag.split('=', 1)
+                if k.strip().lower() == 'p':
+                    pol = v.strip().lower()
+                    if pol in ("none", "quarantine", "reject"):
+                        parsed_policy = pol
+                    break
 
     external_destinations = []
     if dmarc_records:
