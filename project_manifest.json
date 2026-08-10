@@ -517,6 +517,15 @@
       "file": "api/main.py"
     },
     {
+      "path": "/domains/refresh-dns",
+      "method": "POST",
+      "summary": "Refresh all dns",
+      "description": "",
+      "request_model": null,
+      "response_model": "dict",
+      "file": "api/main.py"
+    },
+    {
       "path": "/domains/{domain_id}/dns",
       "method": "GET",
       "summary": "Get domain dns details",
