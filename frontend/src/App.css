@@ -491,6 +491,7 @@ nav {
   border: 1px solid transparent;
   transition: all 0.2s ease-in-out;
   box-sizing: border-box;
+  color: var(--text-primary);
 }
 
 .summary-item:not(.date-picker-item) {
@@ -535,6 +536,7 @@ nav {
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1;
+  color: var(--text-primary);
 }
 .text-green { color: #10b981; }
 .text-orange { color: #f59e0b; }
