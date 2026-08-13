@@ -1434,6 +1434,37 @@ nav {
   margin-bottom: 2.5rem;
 }
 
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.kpi h3 {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kpi-value {
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.kpi-value.alert {
+  color: var(--alert-red);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .glass-header {
