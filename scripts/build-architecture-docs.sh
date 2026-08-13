@@ -63,7 +63,7 @@ else
       fi
     done
   else
-    echo "Asciidoctor CLI not found in environment. Generating consolidated standalone HTML output with embedded images..."
+    echo "Asciidoctor CLI not found in environment. Generating consolidated HTML output with relative image asset references..."
     
     # Copy images to site output directory
     mkdir -p "${SITE_OUTPUT_DIR}/images"
