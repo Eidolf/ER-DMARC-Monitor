@@ -104,8 +104,9 @@ EOF
     for adoc_file in docs/arc42/*.adoc; do
       if [[ -f "${adoc_file}" && "$(basename "${adoc_file}")" != "index.adoc" ]]; then
         chapter_title=$(basename "${adoc_file}")
+        escaped_title=$(echo "${chapter_title}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
         echo "  <div class=\"chapter\">" >> "${INDEX_HTML}"
-        echo "    <h2>${chapter_title}</h2>" >> "${INDEX_HTML}"
+        echo "    <h2>${escaped_title}</h2>" >> "${INDEX_HTML}"
         echo "    <pre>" >> "${INDEX_HTML}"
         sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' "${adoc_file}" >> "${INDEX_HTML}"
         echo "    </pre>" >> "${INDEX_HTML}"

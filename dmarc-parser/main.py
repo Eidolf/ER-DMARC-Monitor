@@ -72,7 +72,12 @@ def parse_and_store(xml_data, is_test):
                 parts = d.split(".")
                 if len(parts) <= 2:
                     return d
-                two_level_tlds = {"co.uk", "org.uk", "gov.uk", "me.uk", "com.au", "net.au", "org.au", "co.jp", "or.jp", "co.nz"}
+                two_level_tlds = {
+                    "co.uk", "org.uk", "gov.uk", "me.uk",
+                    "com.au", "net.au", "org.au",
+                    "co.in", "net.in", "org.in", "gen.in", "firm.in", "ind.in",
+                    "co.jp", "or.jp", "co.nz"
+                }
                 if f"{parts[-2]}.{parts[-1]}" in two_level_tlds and len(parts) >= 3:
                     return f"{parts[-3]}.{parts[-2]}.{parts[-1]}"
                 return f"{parts[-2]}.{parts[-1]}"

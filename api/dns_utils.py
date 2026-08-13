@@ -48,8 +48,13 @@ def get_org_domain(domain: str | None) -> str:
     parts = d.split(".")
     if len(parts) <= 2:
         return d
-    # Multi-label two-level TLDs (e.g. co.uk, com.au, org.uk, gov.uk)
-    two_level_tlds = {"co.uk", "org.uk", "gov.uk", "me.uk", "com.au", "net.au", "org.au", "co.jp", "or.jp", "co.nz"}
+    # Multi-label two-level TLDs (e.g. co.uk, com.au, co.in, org.in, etc.)
+    two_level_tlds = {
+        "co.uk", "org.uk", "gov.uk", "me.uk",
+        "com.au", "net.au", "org.au",
+        "co.in", "net.in", "org.in", "gen.in", "firm.in", "ind.in",
+        "co.jp", "or.jp", "co.nz"
+    }
     if f"{parts[-2]}.{parts[-1]}" in two_level_tlds and len(parts) >= 3:
         return f"{parts[-3]}.{parts[-2]}.{parts[-1]}"
     return f"{parts[-2]}.{parts[-1]}"

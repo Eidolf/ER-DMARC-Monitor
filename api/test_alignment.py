@@ -34,7 +34,7 @@ class TestAlignmentEvaluation(unittest.TestCase):
         spf_res_list = [{"domain": "mail.eidolf.de", "result": "pass", "scope": "mfrom"}]
         dkim_res_list = []
 
-        spf_pass, dkim_pass = self.evaluate_alignment(domain_name, spf_res_list, dkim_res_list)
+        spf_pass, _ = self.evaluate_alignment(domain_name, spf_res_list, dkim_res_list)
         self.assertTrue(spf_pass, "Aligned SPF domain with mfrom scope must result in spf_pass=True")
 
     def test_spf_helo_scope_not_aligned(self) -> None:
@@ -42,7 +42,7 @@ class TestAlignmentEvaluation(unittest.TestCase):
         spf_res_list = [{"domain": "mail.eidolf.de", "result": "pass", "scope": "helo"}]
         dkim_res_list = []
 
-        spf_pass, dkim_pass = self.evaluate_alignment(domain_name, spf_res_list, dkim_res_list)
+        spf_pass, _ = self.evaluate_alignment(domain_name, spf_res_list, dkim_res_list)
         self.assertFalse(spf_pass, "SPF result with helo scope must not result in spf_pass=True for DMARC")
 
     def test_multi_part_tld_alignment(self) -> None:
@@ -50,6 +50,7 @@ class TestAlignmentEvaluation(unittest.TestCase):
         self.assertEqual(get_org_domain("sub.example.co.uk"), "example.co.uk")
         self.assertEqual(get_org_domain("mail.example.co.uk"), "example.co.uk")
         self.assertEqual(get_org_domain("co.uk"), "co.uk")
+        self.assertEqual(get_org_domain("sub.domain.co.in"), "domain.co.in")
 
 if __name__ == "__main__":
     unittest.main()
