@@ -138,6 +138,22 @@ def on_startup():
         except Exception:
             time.sleep(2)
 
+def get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        # X-Forwarded-For can contain comma-separated IPs (client, proxy1, proxy2...)
+        client_ip = forwarded.split(",")[0].strip()
+        if client_ip:
+            return client_ip
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        cleaned_real_ip = real_ip.strip()
+        if cleaned_real_ip:
+            return cleaned_real_ip
+    if hasattr(request, "client") and request.client and getattr(request.client, "host", None):
+        return request.client.host
+    return "unknown"
+
 def log_audit(session: Session, user_id: int, ip: str, method: str, status: str, detail: str = None):
     audit = LoginAudit(user_id=user_id, ip_address=ip, method=method, status=status, detail=detail)
     session.add(audit)
@@ -516,7 +532,7 @@ class MFAVerifyRequest(BaseModel):
 
 @app.post("/auth/login")
 def login(req: LoginRequest, request: Request, session: Session = Depends(get_session)):
-    client_ip = request.client.host
+    client_ip = get_client_ip(request)
     user = session.exec(select(User).where(User.username == req.username)).first()
     
     if not user or not user.hashed_password or not verify_password(req.password, user.hashed_password):
@@ -564,7 +580,7 @@ class MFAVerifyRequest(BaseModel):
 def verify_mfa(req: MFAVerifyRequest, request: Request, session: Session = Depends(get_session)):
     from jose import jwt
     from auth import SECRET_KEY, ALGORITHM
-    client_ip = request.client.host
+    client_ip = get_client_ip(request)
     try:
         payload = jwt.decode(req.mfa_token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("sub")
@@ -626,7 +642,7 @@ def sso_login(request: Request, session: Session = Depends(get_session)):
 
 @app.get("/auth/sso/callback")
 def sso_callback(code: str, request: Request, session: Session = Depends(get_session)):
-    client_ip = request.client.host
+    client_ip = get_client_ip(request)
     settings = session.exec(select(SystemSettings)).first()
     
     redirect_uri = os.getenv("ENTRA_REDIRECT_URI")
@@ -1100,8 +1116,18 @@ async def upload_reports(
                         "scope": s.findtext("scope")
                     })
 
-                dkim_pass = any(d["result"] == "pass" for d in dkim_res_list)
-                spf_pass = any(s["result"] == "pass" for s in spf_res_list)
+                target_org = dns_utils.get_org_domain(report.domain_name)
+
+                dkim_pass = any(
+                    d["result"] == "pass" and dns_utils.get_org_domain(d.get("domain")) == target_org
+                    for d in dkim_res_list
+                )
+                spf_pass = any(
+                    s["result"] == "pass" and 
+                    (s.get("scope") == "mfrom" or s.get("scope") is None) and 
+                    dns_utils.get_org_domain(s.get("domain")) == target_org
+                    for s in spf_res_list
+                )
                         
                 r = ReportRecord(
                     report_id=report.id,

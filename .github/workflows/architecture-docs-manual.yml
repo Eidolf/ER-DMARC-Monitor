@@ -81,9 +81,9 @@ jobs:
       - name: Install documentation dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install graphviz pillow || true
-          sudo apt-get update || true
-          sudo apt-get install -y graphviz || true
+          pip install graphviz pillow
+          sudo apt-get update
+          sudo apt-get install -y graphviz asciidoctor
 
       - name: Detect documentation-relevant changes
         env:

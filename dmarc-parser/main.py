@@ -65,8 +65,35 @@ def parse_and_store(xml_data, is_test):
                     "scope": s.findtext("scope")
                 })
 
-            dkim_pass = any(d["result"] == "pass" for d in dkim_res_list)
-            spf_pass = any(s["result"] == "pass" for s in spf_res_list)
+            def get_org_domain(dom: str | None) -> str:
+                if not dom:
+                    return ""
+                d = dom.lower().strip(".")
+                parts = d.split(".")
+                if len(parts) <= 2:
+                    return d
+                two_level_tlds = {
+                    "co.uk", "org.uk", "gov.uk", "me.uk",
+                    "com.au", "net.au", "org.au",
+                    "co.in", "net.in", "org.in", "gen.in", "firm.in", "ind.in",
+                    "co.jp", "or.jp", "co.nz"
+                }
+                if f"{parts[-2]}.{parts[-1]}" in two_level_tlds and len(parts) >= 3:
+                    return f"{parts[-3]}.{parts[-2]}.{parts[-1]}"
+                return f"{parts[-2]}.{parts[-1]}"
+
+            target_org = get_org_domain(report.domain_name)
+
+            dkim_pass = any(
+                d["result"] == "pass" and get_org_domain(d.get("domain")) == target_org
+                for d in dkim_res_list
+            )
+            spf_pass = any(
+                s["result"] == "pass" and 
+                (s.get("scope") == "mfrom" or s.get("scope") is None) and 
+                get_org_domain(s.get("domain")) == target_org
+                for s in spf_res_list
+            )
                     
             r = ReportRecord(
                 report_id=report.id,
