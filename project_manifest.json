@@ -157,6 +157,11 @@
           "description": ""
         },
         {
+          "name": "get_org_domain",
+          "signature": "def get_org_domain(domain)",
+          "description": ""
+        },
+        {
           "name": "check_external_dmarc_authorization",
           "signature": "def check_external_dmarc_authorization(source_domain, dmarc_record)",
           "description": ""
@@ -613,6 +618,18 @@
         "file": "frontend/src/AuthContext.tsx",
         "description": "Authentication Provider context for managing session state, login/logout actions"
       },
+      "MFA": {
+        "file": "frontend/src/MFA.tsx",
+        "description": "Multi-Factor Authentication prompt and TOTP validation form"
+      },
+      "Settings": {
+        "file": "frontend/src/Settings.tsx",
+        "description": "System Settings interface for branding, MFA enforcement, SSO, and SMTP configurations"
+      },
+      "Login": {
+        "file": "frontend/src/Login.tsx",
+        "description": "Login view allowing Local and SSO (Entra ID) authentication"
+      },
       "main": {
         "file": "frontend/src/main.tsx",
         "description": "UI component in main.tsx"
@@ -620,18 +637,6 @@
       "App": {
         "file": "frontend/src/App.tsx",
         "description": "Main application container and route controller"
-      },
-      "Login": {
-        "file": "frontend/src/Login.tsx",
-        "description": "Login view allowing Local and SSO (Entra ID) authentication"
-      },
-      "Settings": {
-        "file": "frontend/src/Settings.tsx",
-        "description": "System Settings interface for branding, MFA enforcement, SSO, and SMTP configurations"
-      },
-      "MFA": {
-        "file": "frontend/src/MFA.tsx",
-        "description": "Multi-Factor Authentication prompt and TOTP validation form"
       }
     },
     "hooks": {
