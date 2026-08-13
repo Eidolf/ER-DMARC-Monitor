@@ -538,9 +538,9 @@ nav {
   line-height: 1;
   color: var(--text-primary);
 }
-.text-green { color: #10b981; }
-.text-orange { color: #f59e0b; }
-.text-red { color: #ef4444; }
+.text-green { color: #10b981 !important; }
+.text-orange { color: #f59e0b !important; }
+.text-red { color: #ef4444 !important; }
 
 .analysis-grid {
   display: grid;

@@ -1038,7 +1038,7 @@ function Dashboard() {
                           <span className="summary-label">DKIM Fail</span><span className={`summary-value ${dkimPassCount < totalInRecords ? 'text-orange' : ''}`}>{totalInRecords - dkimPassCount}</span>
                         </button>
                         <button type="button" className={`summary-item is-interactive ${filterType === 'unauthorized' ? 'active' : ''}`} onClick={() => setFilterType('unauthorized')} style={{cursor: 'pointer', background: 'none', border: '1px solid transparent', textAlign: 'left', font: 'inherit', padding: 0}}>
-                          <span className="summary-label">Unauthorized</span><span className="summary-value text-red">{searchFilteredRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
+                          <span className="summary-label">Unauthorized</span><span className={`summary-value ${searchFilteredRecords.filter(r => !r.spf_pass && !r.dkim_pass).length > 0 ? 'text-red' : ''}`}>{searchFilteredRecords.filter(r => !r.spf_pass && !r.dkim_pass).length}</span>
                         </button>
                         <div className="summary-item date-picker-item" style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', minWidth: '240px' }}>
                           <label>Period</label>
