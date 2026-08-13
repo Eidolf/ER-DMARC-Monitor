@@ -1,0 +1,31 @@
+= ER-DMARC-Monitor Architecture Documentation (arc42)
+:toc: left
+:toclevels: 3
+:sectnums:
+:icons: font
+:source-highlighter: highlightjs
+:imagesdir: ../generated/images
+
+include::01-introduction-and-goals.adoc[leveloffset=+1]
+
+include::02-architecture-constraints.adoc[leveloffset=+1]
+
+include::03-system-scope-and-context.adoc[leveloffset=+1]
+
+include::04-solution-strategy.adoc[leveloffset=+1]
+
+include::05-building-block-view.adoc[leveloffset=+1]
+
+include::06-runtime-view.adoc[leveloffset=+1]
+
+include::07-deployment-view.adoc[leveloffset=+1]
+
+include::08-crosscutting-concepts.adoc[leveloffset=+1]
+
+include::09-architecture-decisions.adoc[leveloffset=+1]
+
+include::10-quality-requirements.adoc[leveloffset=+1]
+
+include::11-risks-and-technical-debt.adoc[leveloffset=+1]
+
+include::12-glossary.adoc[leveloffset=+1]

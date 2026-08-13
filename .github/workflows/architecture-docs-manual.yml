@@ -83,7 +83,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install graphviz pillow || true
           sudo apt-get update || true
-          sudo apt-get install -y graphviz || true
+          sudo apt-get install -y graphviz asciidoctor || true
 
       - name: Detect documentation-relevant changes
         env:
