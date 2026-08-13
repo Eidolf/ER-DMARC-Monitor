@@ -4,7 +4,7 @@
 :sectnums:
 :icons: font
 :source-highlighter: highlightjs
-:imagesdir: ../generated/images
+:imagesdir: ../images
 
 include::01-introduction-and-goals.adoc[leveloffset=+1]
 

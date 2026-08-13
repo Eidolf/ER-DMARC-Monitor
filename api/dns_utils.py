@@ -41,11 +41,20 @@ def get_spf_record(domain):
     r_cache.setex(cache_key, 3600, json.dumps(result)) # 1h cache
     return result
 
-def _get_org_domain(domain):
-    parts = domain.lower().strip('.').split('.')
-    if len(parts) >= 2:
-        return '.'.join(parts[-2:])
-    return domain.lower()
+def get_org_domain(domain: str | None) -> str:
+    if not domain:
+        return ""
+    d = domain.lower().strip(".")
+    parts = d.split(".")
+    if len(parts) <= 2:
+        return d
+    # Multi-label two-level TLDs (e.g. co.uk, com.au, org.uk, gov.uk)
+    two_level_tlds = {"co.uk", "org.uk", "gov.uk", "me.uk", "com.au", "net.au", "org.au", "co.jp", "or.jp", "co.nz"}
+    if f"{parts[-2]}.{parts[-1]}" in two_level_tlds and len(parts) >= 3:
+        return f"{parts[-3]}.{parts[-2]}.{parts[-1]}"
+    return f"{parts[-2]}.{parts[-1]}"
+
+_get_org_domain = get_org_domain
 
 def check_external_dmarc_authorization(source_domain, dmarc_record):
     import re

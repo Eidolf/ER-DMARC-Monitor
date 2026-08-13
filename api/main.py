@@ -147,8 +147,12 @@ def get_client_ip(request: Request) -> str:
             return client_ip
     real_ip = request.headers.get("x-real-ip")
     if real_ip:
-        return real_ip.strip()
-    return request.client.host if request.client else "unknown"
+        cleaned_real_ip = real_ip.strip()
+        if cleaned_real_ip:
+            return cleaned_real_ip
+    if hasattr(request, "client") and request.client and getattr(request.client, "host", None):
+        return request.client.host
+    return "unknown"
 
 def log_audit(session: Session, user_id: int, ip: str, method: str, status: str, detail: str = None):
     audit = LoginAudit(user_id=user_id, ip_address=ip, method=method, status=status, detail=detail)
@@ -1112,19 +1116,16 @@ async def upload_reports(
                         "scope": s.findtext("scope")
                     })
 
-                def get_org_domain(dom):
-                    if not dom: return ""
-                    parts = dom.lower().strip('.').split('.')
-                    return '.'.join(parts[-2:]) if len(parts) >= 2 else dom.lower()
-
-                target_org = get_org_domain(report.domain_name)
+                target_org = dns_utils.get_org_domain(report.domain_name)
 
                 dkim_pass = any(
-                    d["result"] == "pass" and get_org_domain(d.get("domain")) == target_org
+                    d["result"] == "pass" and dns_utils.get_org_domain(d.get("domain")) == target_org
                     for d in dkim_res_list
                 )
                 spf_pass = any(
-                    s["result"] == "pass" and get_org_domain(s.get("domain")) == target_org
+                    s["result"] == "pass" and 
+                    (s.get("scope") == "mfrom" or s.get("scope") is None) and 
+                    dns_utils.get_org_domain(s.get("domain")) == target_org
                     for s in spf_res_list
                 )
                         

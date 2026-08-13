@@ -43,8 +43,13 @@ else
       echo "Using asciidoctor-kroki extension..."
       DIAGRAM_ARGS+=("-r" "asciidoctor-kroki" "-a" "kroki-server-url=https://kroki.io")
     else
-      echo "No local diagram gem found. Enabling Kroki extension attributes..."
-      DIAGRAM_ARGS+=("-r" "asciidoctor-kroki" "-a" "kroki-server-url=https://kroki.io")
+      echo "No local diagram gem found. Compiling standard Asciidoc without diagram extension..."
+    fi
+
+    # Copy images to site output directory so images resolve inside site artifact
+    mkdir -p "${SITE_OUTPUT_DIR}/images"
+    if [[ -d "${IMAGES_OUTPUT_DIR}" ]]; then
+      cp -r "${IMAGES_OUTPUT_DIR}/"* "${SITE_OUTPUT_DIR}/images/" 2>/dev/null || true
     fi
 
     # Compile master index.adoc if present, or all individual adoc files
@@ -53,12 +58,19 @@ else
       asciidoctor "${DIAGRAM_ARGS[@]}" -D "${SITE_OUTPUT_DIR}" "docs/arc42/index.adoc"
     fi
     for adoc_file in docs/arc42/*.adoc; do
-      if [[ -f "${adoc_file}" ]]; then
+      if [[ -f "${adoc_file}" && "$(basename "${adoc_file}")" != "index.adoc" ]]; then
         asciidoctor "${DIAGRAM_ARGS[@]}" -D "${SITE_OUTPUT_DIR}" "${adoc_file}"
       fi
     done
   else
     echo "Asciidoctor CLI not found in environment. Generating consolidated standalone HTML output with embedded images..."
+    
+    # Copy images to site output directory
+    mkdir -p "${SITE_OUTPUT_DIR}/images"
+    if [[ -d "${IMAGES_OUTPUT_DIR}" ]]; then
+      cp -r "${IMAGES_OUTPUT_DIR}/"* "${SITE_OUTPUT_DIR}/images/" 2>/dev/null || true
+    fi
+
     INDEX_HTML="${SITE_OUTPUT_DIR}/index.html"
     cat <<EOF > "${INDEX_HTML}"
 <!DOCTYPE html>
@@ -83,20 +95,24 @@ else
   <div class="chapter">
     <h2>System Architecture Overview</h2>
     <div class="diagram-box">
-      <img src="../images/architecture-diagram.svg" alt="Architecture Diagram" onerror="this.src='../images/metadata-badge.png'; this.onerror=null;" />
+      <img src="images/architecture-diagram.svg" alt="Architecture Diagram" onerror="this.src='images/metadata-badge.png'; this.onerror=null;" />
     </div>
   </div>
 EOF
 
-    for adoc_file in $(ls docs/arc42/*.adoc | grep -v 'index.adoc' | sort); do
-      chapter_title=$(basename "${adoc_file}")
-      echo "  <div class=\"chapter\">" >> "${INDEX_HTML}"
-      echo "    <h2>${chapter_title}</h2>" >> "${INDEX_HTML}"
-      echo "    <pre>" >> "${INDEX_HTML}"
-      sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' "${adoc_file}" >> "${INDEX_HTML}"
-      echo "    </pre>" >> "${INDEX_HTML}"
-      echo "  </div>" >> "${INDEX_HTML}"
+    shopt -s nullglob
+    for adoc_file in docs/arc42/*.adoc; do
+      if [[ -f "${adoc_file}" && "$(basename "${adoc_file}")" != "index.adoc" ]]; then
+        chapter_title=$(basename "${adoc_file}")
+        echo "  <div class=\"chapter\">" >> "${INDEX_HTML}"
+        echo "    <h2>${chapter_title}</h2>" >> "${INDEX_HTML}"
+        echo "    <pre>" >> "${INDEX_HTML}"
+        sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' "${adoc_file}" >> "${INDEX_HTML}"
+        echo "    </pre>" >> "${INDEX_HTML}"
+        echo "  </div>" >> "${INDEX_HTML}"
+      fi
     done
+    shopt -u nullglob
 
     cat <<EOF >> "${INDEX_HTML}"
 </body>
