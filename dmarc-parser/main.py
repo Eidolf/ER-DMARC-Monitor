@@ -131,12 +131,17 @@ def parse_and_store(xml_data: bytes | str, is_test: bool) -> None:
             session.flush()
         except Exception as e:
             traceback.print_exc(file=sys.stderr)
+            try:
+                session.rollback()
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
             err_msg = f"Failed to construct ReportMetadata: {e}"
             try:
                 log_system_event(session, component="dmarc-parser", level="ERROR", event_type="parse_error", message=err_msg, is_test=is_test)
             except Exception:
                 traceback.print_exc(file=sys.stderr)
             return
+
         
         record_count = 0
         for record in root.findall("record"):

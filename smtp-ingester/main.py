@@ -81,6 +81,7 @@ class DMARCReceivingHandler:
         os.makedirs(RAW_PATH, exist_ok=True)
         
         payloads_found = 0
+        payloads_queued = 0
         r = redis.from_url(REDIS_URL)
         for part in message.walk():
             if part.get_content_maintype() == 'multipart':
@@ -94,6 +95,8 @@ class DMARCReceivingHandler:
             if not payload:
                 continue
                 
+            payloads_found += 1
+
             # Generate unique ID for this payload
             job_id = str(uuid.uuid4())
             storage_name = f"{job_id}_{filename}"
@@ -113,19 +116,20 @@ class DMARCReceivingHandler:
                     "recipient": envelope.rcpt_tos[0] if envelope.rcpt_tos else "unknown"
                 }
                 r.lpush("dmarc_jobs", json.dumps(job_data))
-                payloads_found += 1
-            except Exception as e:
-                print(f"Failed to push to Redis: {e}")
+                payloads_queued += 1
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
 
         push_system_log(
             r,
-            level="INFO",
+            level="INFO" if payloads_queued == payloads_found else "WARNING",
             event_type="mail_received",
-            message=f"Received email from {envelope.mail_from} with {payloads_found} payload attachment(s).",
-            details=json.dumps({"from": envelope.mail_from, "recipients": envelope.rcpt_tos, "payloads_found": payloads_found}),
+            message=f"Received email from {envelope.mail_from} with {payloads_found} payload attachment(s) ({payloads_queued} queued).",
+            details=json.dumps({"from": envelope.mail_from, "recipients": envelope.rcpt_tos, "payloads_found": payloads_found, "payloads_queued": payloads_queued}),
             is_test=is_test
         )
         return '250 Message accepted for delivery'
+
 
 
 async def amain():

@@ -74,6 +74,8 @@ def sync_smtp_config(session: Session) -> None:
             r_client.delete(*keys)
     except Exception:
         traceback.print_exc(file=sys.stderr)
+        raise
+
 
     
     domains = session.exec(select(SMTPListeningDomain).where(SMTPListeningDomain.is_active == True)).all()
