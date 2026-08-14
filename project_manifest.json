@@ -140,6 +140,20 @@
         "is_dmarc_compliant": "bool"
       },
       "relationships": []
+    },
+    "SystemProcessingLog": {
+      "file": "api/models.py",
+      "fields": {
+        "id": "int | None",
+        "timestamp": "datetime",
+        "component": "str",
+        "level": "str",
+        "event_type": "str",
+        "message": "str",
+        "details": "str | None",
+        "is_test": "bool"
+      },
+      "relationships": []
     }
   },
   "services": {
@@ -365,6 +379,15 @@
       "summary": "Get audit logs",
       "description": "",
       "request_model": null,
+      "response_model": null,
+      "file": "api/main.py"
+    },
+    {
+      "path": "/admin/system-logs",
+      "method": "GET",
+      "summary": "Get system processing logs",
+      "description": "",
+      "request_model": "int",
       "response_model": null,
       "file": "api/main.py"
     },
@@ -614,17 +637,13 @@
   ],
   "frontend": {
     "components": {
-      "AuthContext": {
-        "file": "frontend/src/AuthContext.tsx",
-        "description": "Authentication Provider context for managing session state, login/logout actions"
+      "App": {
+        "file": "frontend/src/App.tsx",
+        "description": "Main application container and route controller"
       },
       "MFA": {
         "file": "frontend/src/MFA.tsx",
         "description": "Multi-Factor Authentication prompt and TOTP validation form"
-      },
-      "Settings": {
-        "file": "frontend/src/Settings.tsx",
-        "description": "System Settings interface for branding, MFA enforcement, SSO, and SMTP configurations"
       },
       "Login": {
         "file": "frontend/src/Login.tsx",
@@ -634,9 +653,13 @@
         "file": "frontend/src/main.tsx",
         "description": "UI component in main.tsx"
       },
-      "App": {
-        "file": "frontend/src/App.tsx",
-        "description": "Main application container and route controller"
+      "AuthContext": {
+        "file": "frontend/src/AuthContext.tsx",
+        "description": "Authentication Provider context for managing session state, login/logout actions"
+      },
+      "Settings": {
+        "file": "frontend/src/Settings.tsx",
+        "description": "System Settings interface for branding, MFA enforcement, SSO, and SMTP configurations"
       }
     },
     "hooks": {

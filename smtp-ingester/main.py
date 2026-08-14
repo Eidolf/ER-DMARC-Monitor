@@ -3,12 +3,28 @@ import asyncio
 import uuid
 import json
 import redis
+from datetime import datetime
 from email import message_from_bytes
 from aiosmtpd.controller import Controller
 from aiosmtpd.handlers import AsyncMessage
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 RAW_PATH = os.getenv("RAW_PATH", "/data/raw")
+
+def push_system_log(r, level: str, event_type: str, message: str, details: str | None = None, is_test: bool = False):
+    try:
+        log_payload = {
+            "component": "smtp-ingester",
+            "level": level,
+            "event_type": event_type,
+            "message": message,
+            "details": details,
+            "is_test": is_test,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        r.lpush("system_log_jobs", json.dumps(log_payload))
+    except Exception as e:
+        print(f"Failed to push system log: {e}")
 
 class DMARCReceivingHandler:
     async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
@@ -30,16 +46,16 @@ class DMARCReceivingHandler:
             # Check if domain is allowed
             if not r.sismember("smtp:allowed:domains", domain):
                 print(f"Rejected RCPT: Domain {domain} not in allowed list")
+                push_system_log(r, level="WARNING", event_type="mail_rejected", message=f"Rejected RCPT to <{address}>: Domain {domain} not configured.", details=json.dumps({"domain": domain, "local_part": local_part, "reason": "domain_not_allowed"}))
                 return '550 Relay not permitted'
                 
             # Check if recipient is allowed for this domain
             if not r.sismember(f"smtp:allowed:recipients:{domain}", local_part):
                 print(f"Rejected RCPT: Recipient {local_part} not in allowed list for {domain}")
+                push_system_log(r, level="WARNING", event_type="mail_rejected", message=f"Rejected RCPT to <{address}>: Recipient not configured for domain {domain}.", details=json.dumps({"domain": domain, "local_part": local_part, "reason": "recipient_not_allowed"}))
                 return '550 No such user here'
         except Exception as e:
             print(f"Redis lookup error: {e}")
-            # Fail closed or open? Requirement says "SMTP messages to non-configured recipients must be rejected"
-            # But if Redis is down, we might want to log and temporarily reject
             return '451 Temporary local error'
 
         envelope.rcpt_tos.append(address)
@@ -55,6 +71,7 @@ class DMARCReceivingHandler:
         os.makedirs(RAW_PATH, exist_ok=True)
         
         payloads_found = 0
+        r = redis.from_url(REDIS_URL)
         for part in message.walk():
             if part.get_content_maintype() == 'multipart':
                 continue
@@ -78,7 +95,6 @@ class DMARCReceivingHandler:
             
             # Push to Redis queue for the parser
             try:
-                r = redis.from_url(REDIS_URL)
                 job_data = {
                     "job_id": job_id,
                     "filename": storage_name,
@@ -91,7 +107,16 @@ class DMARCReceivingHandler:
             except Exception as e:
                 print(f"Failed to push to Redis: {e}")
 
+        push_system_log(
+            r,
+            level="INFO",
+            event_type="mail_received",
+            message=f"Received email from {envelope.mail_from} with {payloads_found} payload attachment(s).",
+            details=json.dumps({"from": envelope.mail_from, "recipients": envelope.rcpt_tos, "payloads_found": payloads_found}),
+            is_test=is_test
+        )
         return '250 Message accepted for delivery'
+
 
 async def amain():
     host = os.getenv("SMTP_HOST", "0.0.0.0")
