@@ -81,8 +81,7 @@ class DMARCReceivingHandler:
         os.makedirs(RAW_PATH, exist_ok=True)
         
         payloads_found = 0
-        payloads_queued = 0
-        r = redis.from_url(REDIS_URL)
+        jobs_to_queue = []
         for part in message.walk():
             if part.get_content_maintype() == 'multipart':
                 continue
@@ -106,29 +105,43 @@ class DMARCReceivingHandler:
             with open(os.path.join(RAW_PATH, storage_name), "wb") as f:
                 f.write(payload)
             
-            # Push to Redis queue for the parser
+            jobs_to_queue.append({
+                "job_id": job_id,
+                "filename": storage_name,
+                "is_test": is_test,
+                "received_at": str(asyncio.get_event_loop().time()),
+                "recipient": envelope.rcpt_tos[0] if envelope.rcpt_tos else "unknown"
+            })
+
+        if jobs_to_queue:
             try:
-                job_data = {
-                    "job_id": job_id,
-                    "filename": storage_name,
-                    "is_test": is_test,
-                    "received_at": str(asyncio.get_event_loop().time()),
-                    "recipient": envelope.rcpt_tos[0] if envelope.rcpt_tos else "unknown"
-                }
-                r.lpush("dmarc_jobs", json.dumps(job_data))
-                payloads_queued += 1
+                pipe = r.pipeline()
+                for job_data in jobs_to_queue:
+                    pipe.lpush("dmarc_jobs", json.dumps(job_data))
+                pipe.execute()
+                payloads_queued = len(jobs_to_queue)
             except Exception:
                 traceback.print_exc(file=sys.stderr)
+                push_system_log(
+                    r,
+                    level="ERROR",
+                    event_type="mail_enqueue_failed",
+                    message=f"Failed to queue {len(jobs_to_queue)} payload(s) from {envelope.mail_from}.",
+                    details=json.dumps({"from": envelope.mail_from, "recipients": envelope.rcpt_tos, "payloads_found": payloads_found, "payloads_queued": 0}),
+                    is_test=is_test
+                )
+                return '451 Temporary queue error, please retry later'
 
         push_system_log(
             r,
-            level="INFO" if payloads_queued == payloads_found else "WARNING",
+            level="INFO",
             event_type="mail_received",
             message=f"Received email from {envelope.mail_from} with {payloads_found} payload attachment(s) ({payloads_queued} queued).",
             details=json.dumps({"from": envelope.mail_from, "recipients": envelope.rcpt_tos, "payloads_found": payloads_found, "payloads_queued": payloads_queued}),
             is_test=is_test
         )
         return '250 Message accepted for delivery'
+
 
 
 
