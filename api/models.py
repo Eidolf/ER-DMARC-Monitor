@@ -125,3 +125,14 @@ class SMTPRecipient(SQLModel, table=True):
     local_part: str = Field(index=True) # e.g. "report"
     is_active: bool = Field(default=True)
     is_dmarc_compliant: bool = Field(default=True)
+
+class SystemProcessingLog(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    component: str = Field(index=True) # "smtp-ingester", "dmarc-parser", "backend", "dns"
+    level: str = Field(default="INFO", index=True) # "INFO", "WARNING", "ERROR"
+    event_type: str = Field(index=True) # "mail_received", "mail_rejected", "report_parsed", "parse_error", "dns_refresh", "smtp_sync"
+    message: str
+    details: str | None = Field(default=None) # JSON or error string
+    is_test: bool = Field(default=False, index=True)
+

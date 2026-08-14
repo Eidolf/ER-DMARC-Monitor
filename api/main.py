@@ -18,7 +18,7 @@ from email.utils import formataddr
 
 from models import (
     Domain, ReportMetadata, ReportRecord, User, UserRole, SystemSettings, LoginAudit, AuthSource,
-    SMTPListeningDomain, SMTPRecipient
+    SMTPListeningDomain, SMTPRecipient, SystemProcessingLog
 )
 from auth import (
     get_password_hash, verify_password, create_access_token, create_mfa_token,
@@ -33,22 +33,52 @@ import redis
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 r_client = redis.from_url(REDIS_URL)
 
-def sync_smtp_config(session: Session):
-    # Clear existing
-    keys = r_client.keys("smtp:allowed:*")
-    if keys:
-        try:
-            r_client.delete(*keys)
-        except:
-            pass
-    
-    domains = session.exec(select(SMTPListeningDomain).where(SMTPListeningDomain.is_active == True)).all()
-
 def normalize_end_date(end_date_str: str) -> datetime:
     parsed_end = datetime.fromisoformat(end_date_str)
     if parsed_end.time() == datetime.min.time():
         parsed_end = datetime.combine(parsed_end.date(), datetime.max.time())
     return parsed_end
+
+def log_system_event(
+    session: Session,
+    component: str,
+    level: str,
+    event_type: str,
+    message: str,
+    details: str | None = None,
+    is_test: bool = False
+) -> None:
+    try:
+        log_entry = SystemProcessingLog(
+            component=component,
+            level=level,
+            event_type=event_type,
+            message=message,
+            details=details,
+            is_test=is_test
+        )
+        session.add(log_entry)
+        session.commit()
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
+        try:
+            session.rollback()
+        except Exception:
+            traceback.print_exc(file=sys.stderr)
+
+def sync_smtp_config(session: Session) -> None:
+    # Clear existing
+    try:
+        keys = r_client.keys("smtp:allowed:*")
+        if keys:
+            r_client.delete(*keys)
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
+        raise
+
+
+    
+    domains = session.exec(select(SMTPListeningDomain).where(SMTPListeningDomain.is_active == True)).all()
     for d in domains:
         r_client.sadd("smtp:allowed:domains", d.domain_name.lower())
         recipients = session.exec(select(SMTPRecipient).where(SMTPRecipient.listening_domain_id == d.id, SMTPRecipient.is_active == True)).all()
@@ -64,6 +94,15 @@ def normalize_end_date(end_date_str: str) -> datetime:
                 local_part, domain = addr.split("@", 1)
                 r_client.sadd("smtp:allowed:domains", domain.lower())
                 r_client.sadd(f"smtp:allowed:recipients:{domain.lower()}", local_part.lower())
+    
+    log_system_event(
+        session,
+        component="backend",
+        level="INFO",
+        event_type="smtp_sync",
+        message=f"Synchronized SMTP inbound configuration for {len(domains)} active domains."
+    )
+
 
 DB_DSN = os.getenv("DB_DSN", "sqlite:///database.db")
 engine = create_engine(DB_DSN)
@@ -339,10 +378,35 @@ def get_audit_logs(
     session: Session = Depends(get_session),
     user: User = Depends(RoleChecker([UserRole.ADMIN]))
 ):
-    # Join with User to get emails
+    # Join with User to get emails - strictly Admin only
     statement = select(LoginAudit, User.email).join(User).order_by(LoginAudit.timestamp.desc()).limit(100)
     results = session.exec(statement).all()
     return [{"id": a.id, "email": email, "timestamp": a.timestamp, "ip": a.ip_address, "method": a.method, "status": a.status, "detail": a.detail} for a, email in results]
+
+@app.get("/admin/system-logs")
+def get_system_processing_logs(
+    component: str | None = Query(default=None),
+    level: str | None = Query(default=None),
+    event_type: str | None = Query(default=None),
+    search: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    session: Session = Depends(get_session),
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.ANALYST]))
+):
+    statement = select(SystemProcessingLog)
+    if component:
+        statement = statement.where(SystemProcessingLog.component == component)
+    if level:
+        statement = statement.where(SystemProcessingLog.level == level)
+    if event_type:
+        statement = statement.where(SystemProcessingLog.event_type == event_type)
+    if search:
+        statement = statement.where(SystemProcessingLog.message.contains(search))
+        
+    statement = statement.order_by(SystemProcessingLog.timestamp.desc()).limit(limit)
+    logs = session.exec(statement).all()
+    return logs
+
 
 # --- User Management Endpoints ---
 
@@ -844,6 +908,14 @@ def refresh_all_dns(
             failed_domains.append({"domain": d.name, "error": str(e)})
 
     session.commit()
+    log_system_event(
+        session,
+        component="backend",
+        level="WARNING" if failed_domains else "INFO",
+        event_type="dns_refresh",
+        message=f"DNS cache refreshed for {len(domains_to_process)} domain(s) (Failures: {len(failed_domains)}).",
+        details=json.dumps({"processed": len(domains_to_process), "failures": failed_domains})
+    )
     res = {"status": "refreshed", "processed": len(domains_to_process), "total": total_domains}
     if failed_domains:
         res["failures"] = failed_domains

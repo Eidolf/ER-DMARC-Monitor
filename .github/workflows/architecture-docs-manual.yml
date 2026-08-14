@@ -133,7 +133,7 @@ jobs:
 
       - name: Create Pull Request with documentation changes
         if: ${{ inputs.create_pull_request && steps.git-check.outputs.changed == 'true' }}
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           commit-message: "docs: update architecture documentation"
           branch: "docs/update-architecture-docs-${{ github.run_id }}"
@@ -155,3 +155,4 @@ jobs:
           labels: |
             documentation
             automated-pr
+

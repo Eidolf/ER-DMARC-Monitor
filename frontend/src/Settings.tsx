@@ -62,12 +62,27 @@ interface AuditLog {
   detail: string | null;
 }
 
+interface SystemLog {
+  id: number;
+  timestamp: string;
+  component: string;
+  level: string;
+  event_type: string;
+  message: string;
+  details: string | null;
+  is_test: boolean;
+}
+
 const Settings: React.FC = () => {
   const { token, role } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'domains' | 'branding' | 'auth' | 'audit' | 'smtp' | 'smtp_inbound' | 'users'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'domains' | 'branding' | 'auth' | 'audit' | 'system_logs' | 'smtp' | 'smtp_inbound' | 'users'>('profile');
   const [settings, setSettings] = useState<GlobalSettings | null>(null);
   const [domains, setDomains] = useState<{id: number, name: string}[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [systemLogs, setSystemLogs] = useState<SystemLog[]>([]);
+  const [systemLogFilter, setSystemLogFilter] = useState({ component: '', level: '', search: '' });
+  const [systemLogAutoRefresh, setSystemLogAutoRefresh] = useState(true);
+  const [expandedLogId, setExpandedLogId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -99,9 +114,13 @@ const Settings: React.FC = () => {
   const [newRecipient, setNewRecipient] = useState<{domainId: number, localPart: string}>({ domainId: 0, localPart: '' });
 
   const isAdmin = role === 'Admin';
+  const isAnalystOrAdmin = role === 'Admin' || role === 'Analyst';
 
   useEffect(() => {
     fetchProfile();
+    if (activeTab === 'system_logs' && isAnalystOrAdmin) {
+      fetchSystemLogs();
+    }
     if (isAdmin) {
       if (activeTab === 'auth' || activeTab === 'branding' || activeTab === 'smtp') fetchSettings();
       if (activeTab === 'audit') fetchAuditLogs();
@@ -111,6 +130,33 @@ const Settings: React.FC = () => {
       if (activeTab === 'users') fetchUsers();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'system_logs' && isAnalystOrAdmin && systemLogAutoRefresh) {
+      const interval = setInterval(() => {
+        fetchSystemLogs();
+      }, 8000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, isAnalystOrAdmin, systemLogAutoRefresh, systemLogFilter]);
+
+  const fetchSystemLogs = async () => {
+    const params = new URLSearchParams();
+    if (systemLogFilter.component) params.append('component', systemLogFilter.component);
+    if (systemLogFilter.level) params.append('level', systemLogFilter.level);
+    if (systemLogFilter.search) params.append('search', systemLogFilter.search);
+    params.append('limit', '100');
+
+    try {
+      const res = await fetch(`/api/admin/system-logs?${params.toString()}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setSystemLogs(await res.json());
+    } catch (e) {
+      console.error('Failed to fetch system logs', e);
+    }
+  };
+
 
   const fetchProfile = async () => {
     const res = await fetch('/api/auth/me', {
@@ -382,6 +428,9 @@ const Settings: React.FC = () => {
     <div className="settings-container">
       <div className="settings-sidebar">
         <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setActiveTab('profile')}>User Profile</button>
+        {isAnalystOrAdmin && (
+          <button className={activeTab === 'system_logs' ? 'active' : ''} onClick={() => setActiveTab('system_logs')}>System & Processing Logs</button>
+        )}
         {isAdmin && (
           <>
             <button className={activeTab === 'domains' ? 'active' : ''} onClick={() => setActiveTab('domains')}>Domains</button>
@@ -394,6 +443,7 @@ const Settings: React.FC = () => {
           </>
         )}
       </div>
+
 
       <div className="settings-main glass-card">
         {message && <div className={`alert-banner ${message.type}`}>{message.text}</div>}
@@ -576,7 +626,197 @@ const Settings: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'audit' && (
+        {activeTab === 'system_logs' && isAnalystOrAdmin && (
+          <div className="settings-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ margin: 0 }}>System & Processing Logs</h3>
+                <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  Live status of inbound emails, parser execution, and backend tasks.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={systemLogAutoRefresh}
+                    onChange={e => setSystemLogAutoRefresh(e.target.checked)}
+                  />
+                  Auto-refresh (8s)
+                </label>
+                <button
+                  type="button"
+                  onClick={fetchSystemLogs}
+                  className="action-btn"
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            <div className="glass-card" style={{ padding: '1rem', marginBottom: '1.25rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+              <div className="form-group" style={{ margin: 0, flex: '1 1 180px' }}>
+                <label style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Component</label>
+                <select
+                  value={systemLogFilter.component}
+                  onChange={e => setSystemLogFilter({ ...systemLogFilter, component: e.target.value })}
+                  className="text-input"
+                  style={{ marginTop: '0.25rem', padding: '0.4rem 0.6rem' }}
+                >
+                  <option value="">All Components</option>
+                  <option value="smtp-ingester">SMTP Ingester</option>
+                  <option value="dmarc-parser">DMARC Parser</option>
+                  <option value="backend">Backend API</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ margin: 0, flex: '1 1 150px' }}>
+                <label style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Level</label>
+                <select
+                  value={systemLogFilter.level}
+                  onChange={e => setSystemLogFilter({ ...systemLogFilter, level: e.target.value })}
+                  className="text-input"
+                  style={{ marginTop: '0.25rem', padding: '0.4rem 0.6rem' }}
+                >
+                  <option value="">All Levels</option>
+                  <option value="INFO">INFO</option>
+                  <option value="WARNING">WARNING</option>
+                  <option value="ERROR">ERROR</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ margin: 0, flex: '2 1 240px' }}>
+                <label style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Search Message</label>
+                <input
+                  type="text"
+                  placeholder="Filter by keyword..."
+                  value={systemLogFilter.search}
+                  onChange={e => setSystemLogFilter({ ...systemLogFilter, search: e.target.value })}
+                  className="text-input"
+                  style={{ marginTop: '0.25rem', padding: '0.4rem 0.6rem' }}
+                />
+              </div>
+            </div>
+
+            <div className="scroll-box">
+              <table className="modern-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Component</th>
+                    <th>Level</th>
+                    <th>Event</th>
+                    <th>Message</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {systemLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
+                        No system logs found matching criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    systemLogs.map(log => {
+                      const levelClass =
+                        log.level === 'ERROR'
+                          ? 'status-fail'
+                          : log.level === 'WARNING'
+                          ? 'status-warn'
+                          : 'status-pass';
+                      const isExpanded = expandedLogId === log.id;
+
+                      return (
+                        <React.Fragment key={log.id}>
+                          <tr
+                            style={{ cursor: log.details ? 'pointer' : 'default' }}
+                            onClick={() => log.details && setExpandedLogId(isExpanded ? null : log.id)}
+                          >
+                            <td style={{ whiteSpace: 'nowrap', fontSize: '0.85rem' }}>{formatDateTime(log.timestamp)}</td>
+                            <td>
+                              <span style={{
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontSize: '0.75rem',
+                                background: 'rgba(255,255,255,0.06)',
+                                border: '1px solid rgba(255,255,255,0.1)'
+                              }}>
+                                {log.component}
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`status-tag ${levelClass}`}>
+                                {log.level}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: '0.85rem', color: '#93c5fd' }}>{log.event_type}</td>
+                            <td style={{ fontSize: '0.85rem' }}>
+                              {log.message}
+                              {log.is_test && (
+                                <span style={{
+                                  marginLeft: '6px',
+                                  fontSize: '0.7rem',
+                                  background: '#374151',
+                                  color: '#fbbf24',
+                                  padding: '1px 5px',
+                                  borderRadius: '3px'
+                                }}>
+                                  TEST
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              {log.details ? (
+                                <button
+                                  type="button"
+                                  className="action-btn"
+                                  style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedLogId(isExpanded ? null : log.id);
+                                  }}
+                                >
+                                  {isExpanded ? 'Hide' : 'View'}
+                                </button>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>-</span>
+                              )}
+                            </td>
+                          </tr>
+                          {isExpanded && log.details && (
+                            <tr>
+                              <td colSpan={6} style={{ padding: '0.5rem 1rem', background: 'rgba(0,0,0,0.25)' }}>
+                                <pre style={{
+                                  margin: 0,
+                                  fontSize: '0.8rem',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-all',
+                                  color: '#a7f3d0'
+                                }}>
+                                  {(() => {
+                                    try {
+                                      return JSON.stringify(JSON.parse(log.details), null, 2);
+                                    } catch {
+                                      return log.details;
+                                    }
+                                  })()}
+                                </pre>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'audit' && isAdmin && (
           <div className="settings-section">
             <h3>Security Audit Log</h3>
             <div className="scroll-box">
