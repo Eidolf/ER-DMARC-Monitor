@@ -5,6 +5,7 @@ import asyncio
 import uuid
 import json
 import redis
+from typing import TypedDict
 from datetime import datetime
 from email import message_from_bytes
 from aiosmtpd.controller import Controller
@@ -12,6 +13,13 @@ from aiosmtpd.handlers import AsyncMessage
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 RAW_PATH = os.getenv("RAW_PATH", "/data/raw")
+
+class DMARCJob(TypedDict):
+    job_id: str
+    filename: str
+    is_test: bool
+    received_at: str
+    recipient: str
 
 def push_system_log(
     r: redis.Redis,
@@ -72,6 +80,11 @@ class DMARCReceivingHandler:
         return '250 OK'
 
     async def handle_DATA(self, server, session, envelope):
+        r = redis.from_url(REDIS_URL)
+        payloads_found = 0
+        payloads_queued = 0
+        jobs_to_queue: list[DMARCJob] = []
+
         message = message_from_bytes(envelope.content)
         is_test = message.get("X-DMARC-Test", "").lower() == "true"
         
@@ -80,8 +93,6 @@ class DMARCReceivingHandler:
         # Ensure raw path exists
         os.makedirs(RAW_PATH, exist_ok=True)
         
-        payloads_found = 0
-        jobs_to_queue = []
         for part in message.walk():
             if part.get_content_maintype() == 'multipart':
                 continue
@@ -105,13 +116,14 @@ class DMARCReceivingHandler:
             with open(os.path.join(RAW_PATH, storage_name), "wb") as f:
                 f.write(payload)
             
-            jobs_to_queue.append({
+            job_item: DMARCJob = {
                 "job_id": job_id,
                 "filename": storage_name,
                 "is_test": is_test,
-                "received_at": str(asyncio.get_event_loop().time()),
+                "received_at": datetime.utcnow().isoformat(),
                 "recipient": envelope.rcpt_tos[0] if envelope.rcpt_tos else "unknown"
-            })
+            }
+            jobs_to_queue.append(job_item)
 
         if jobs_to_queue:
             try:
@@ -141,6 +153,7 @@ class DMARCReceivingHandler:
             is_test=is_test
         )
         return '250 Message accepted for delivery'
+
 
 
 
