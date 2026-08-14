@@ -47,7 +47,7 @@ def log_system_event(
     message: str,
     details: str | None = None,
     is_test: bool = False
-):
+) -> None:
     try:
         log_entry = SystemProcessingLog(
             component=component,
@@ -59,17 +59,22 @@ def log_system_event(
         )
         session.add(log_entry)
         session.commit()
-    except Exception as e:
-        print(f"Failed to record system processing log: {e}", file=sys.stderr)
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
+        try:
+            session.rollback()
+        except Exception:
+            traceback.print_exc(file=sys.stderr)
 
-def sync_smtp_config(session: Session):
+def sync_smtp_config(session: Session) -> None:
     # Clear existing
     try:
         keys = r_client.keys("smtp:allowed:*")
         if keys:
             r_client.delete(*keys)
-    except Exception as e:
-        print(f"Error clearing Redis SMTP config keys: {e}", file=sys.stderr)
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
+
     
     domains = session.exec(select(SMTPListeningDomain).where(SMTPListeningDomain.is_active == True)).all()
     for d in domains:
@@ -382,7 +387,7 @@ def get_system_processing_logs(
     level: str | None = Query(default=None),
     event_type: str | None = Query(default=None),
     search: str | None = Query(default=None),
-    limit: int = Query(default=100, le=500),
+    limit: int = Query(default=100, ge=1, le=500),
     session: Session = Depends(get_session),
     user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.ANALYST]))
 ):

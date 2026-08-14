@@ -1,4 +1,6 @@
 import os
+import sys
+import traceback
 import time
 import json
 import redis
@@ -10,13 +12,22 @@ from sqlmodel import Session, create_engine, select
 from defusedxml import ElementTree as ET
 from models import ReportMetadata, ReportRecord, SQLModel, SystemProcessingLog
 
-DB_DSN = os.getenv("DB_DSN", "postgresql+psycopg://dmarc_admin:secure_dmarc_pass@postgres:5432/dmarc_monitor")
+DB_DSN = os.environ["DB_DSN"]
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 RAW_PATH = os.getenv("RAW_PATH", "/data/raw")
 
 engine = create_engine(DB_DSN)
 
-def log_system_event(session, component: str, level: str, event_type: str, message: str, details: str | None = None, is_test: bool = False, timestamp: datetime | None = None):
+def log_system_event(
+    session: Session,
+    component: str,
+    level: str,
+    event_type: str,
+    message: str,
+    details: str | None = None,
+    is_test: bool = False,
+    timestamp: datetime | None = None
+) -> None:
     try:
         log_entry = SystemProcessingLog(
             timestamp=timestamp or datetime.utcnow(),
@@ -29,22 +40,28 @@ def log_system_event(session, component: str, level: str, event_type: str, messa
         )
         session.add(log_entry)
         session.commit()
-    except Exception as e:
-        print(f"Failed to record system log entry: {e}")
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
+        try:
+            session.rollback()
+        except Exception:
+            traceback.print_exc(file=sys.stderr)
+        raise
 
-def drain_system_log_queue(r, session):
-    try:
-        while True:
-            item = r.rpop("system_log_jobs")
-            if not item:
-                break
+def drain_system_log_queue(r: redis.Redis, session: Session, max_batch: int = 50) -> None:
+    for _ in range(max_batch):
+        # Claim-and-ack: atomically pop from system_log_jobs into processing list
+        item = r.rpoplpush("system_log_jobs", "system_log_jobs:processing")
+        if not item:
+            break
+        try:
             payload = json.loads(item)
             ts = None
             if "timestamp" in payload and payload["timestamp"]:
                 try:
                     ts = datetime.fromisoformat(payload["timestamp"])
                 except Exception:
-                    pass
+                    traceback.print_exc(file=sys.stderr)
             log_system_event(
                 session,
                 component=payload.get("component", "system"),
@@ -55,29 +72,49 @@ def drain_system_log_queue(r, session):
                 is_test=payload.get("is_test", False),
                 timestamp=ts
             )
-    except Exception as e:
-        print(f"Error draining system_log_jobs: {e}")
+            # Ack: remove the successfully processed item from the processing list
+            r.lrem("system_log_jobs:processing", 1, item)
+        except Exception:
+            traceback.print_exc(file=sys.stderr)
+            # Requeue to head of system_log_jobs and remove from processing list
+            try:
+                pipe = r.pipeline()
+                pipe.lpush("system_log_jobs", item)
+                pipe.lrem("system_log_jobs:processing", 1, item)
+                pipe.execute()
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
+            break
 
-def parse_and_store(xml_data, is_test):
+def parse_and_store(xml_data: bytes | str, is_test: bool) -> None:
     with Session(engine) as session:
         try:
             root = ET.fromstring(xml_data)
         except Exception as e:
+            traceback.print_exc(file=sys.stderr)
             err_msg = f"XML parsing failed: {e}"
-            print(err_msg)
-            log_system_event(session, component="dmarc-parser", level="ERROR", event_type="parse_error", message=err_msg, is_test=is_test)
+            try:
+                log_system_event(session, component="dmarc-parser", level="ERROR", event_type="parse_error", message=err_msg, is_test=is_test)
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
             return
 
         metadata = root.find("report_metadata")
         if metadata is None:
-            log_system_event(session, component="dmarc-parser", level="WARNING", event_type="parse_error", message="Missing report_metadata element in XML payload", is_test=is_test)
+            try:
+                log_system_event(session, component="dmarc-parser", level="WARNING", event_type="parse_error", message="Missing report_metadata element in XML payload", is_test=is_test)
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
             return
             
         report_id = metadata.findtext("report_id")
         existing = session.exec(select(ReportMetadata).where(ReportMetadata.report_id == report_id)).first()
         if existing:
             print(f"Report {report_id} already exists. Skipping.")
-            log_system_event(session, component="dmarc-parser", level="INFO", event_type="report_skipped", message=f"Report {report_id} already exists in database. Skipped duplicate.", is_test=is_test)
+            try:
+                log_system_event(session, component="dmarc-parser", level="INFO", event_type="report_skipped", message=f"Report {report_id} already exists in database. Skipped duplicate.", is_test=is_test)
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
             return
             
         try:
@@ -93,9 +130,12 @@ def parse_and_store(xml_data, is_test):
             session.add(report)
             session.flush()
         except Exception as e:
+            traceback.print_exc(file=sys.stderr)
             err_msg = f"Failed to construct ReportMetadata: {e}"
-            print(err_msg)
-            log_system_event(session, component="dmarc-parser", level="ERROR", event_type="parse_error", message=err_msg, is_test=is_test)
+            try:
+                log_system_event(session, component="dmarc-parser", level="ERROR", event_type="parse_error", message=err_msg, is_test=is_test)
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
             return
         
         record_count = 0
@@ -171,21 +211,25 @@ def parse_and_store(xml_data, is_test):
         
         session.commit()
         print(f"Stored report {report_id} with {record_count} records (Test: {is_test})")
-        log_system_event(
-            session,
-            component="dmarc-parser",
-            level="INFO",
-            event_type="report_parsed",
-            message=f"Parsed DMARC report from {report.org_name} for domain {report.domain_name} ({record_count} record rows).",
-            details=json.dumps({"report_id": report_id, "org_name": report.org_name, "domain_name": report.domain_name, "records_count": record_count}),
-            is_test=is_test
-        )
+        try:
+            log_system_event(
+                session,
+                component="dmarc-parser",
+                level="INFO",
+                event_type="report_parsed",
+                message=f"Parsed DMARC report from {report.org_name} for domain {report.domain_name} ({record_count} record rows).",
+                details=json.dumps({"report_id": report_id, "org_name": report.org_name, "domain_name": report.domain_name, "records_count": record_count}),
+                is_test=is_test
+            )
+        except Exception:
+            traceback.print_exc(file=sys.stderr)
 
-def main():
+def main() -> None:
     print(f"DMARC Parser Worker started. Connecting to Redis: {REDIS_URL}")
     r = redis.from_url(REDIS_URL)
     
     while True:
+        is_test = False
         try:
             with Session(engine) as session:
                 drain_system_log_queue(r, session)
@@ -204,7 +248,10 @@ def main():
             if not os.path.exists(file_path):
                 print(f"File not found: {file_path}")
                 with Session(engine) as session:
-                    log_system_event(session, component="dmarc-parser", level="ERROR", event_type="file_not_found", message=f"Payload file not found on disk: {filename}", is_test=is_test)
+                    try:
+                        log_system_event(session, component="dmarc-parser", level="ERROR", event_type="file_not_found", message=f"Payload file not found on disk: {filename}", is_test=is_test)
+                    except Exception:
+                        traceback.print_exc(file=sys.stderr)
                 continue
                 
             with open(file_path, "rb") as f:
@@ -217,7 +264,10 @@ def main():
                     xml_files = [n for n in z.namelist() if n.endswith('.xml')]
                     if not xml_files:
                         with Session(engine) as session:
-                            log_system_event(session, component="dmarc-parser", level="WARNING", event_type="parse_error", message=f"No XML found in zip archive: {filename}", is_test=is_test)
+                            try:
+                                log_system_event(session, component="dmarc-parser", level="WARNING", event_type="parse_error", message=f"No XML found in zip archive: {filename}", is_test=is_test)
+                            except Exception:
+                                traceback.print_exc(file=sys.stderr)
                         continue
                     xml_data = z.read(xml_files[0])
             else:
@@ -226,14 +276,15 @@ def main():
             parse_and_store(xml_data, is_test)
             
         except Exception as e:
-            print(f"Error processing job: {e}")
+            traceback.print_exc(file=sys.stderr)
             try:
                 with Session(engine) as session:
-                    log_system_event(session, component="dmarc-parser", level="ERROR", event_type="parse_error", message=f"Exception in parser worker loop: {e}")
+                    log_system_event(session, component="dmarc-parser", level="ERROR", event_type="parse_error", message=f"Exception in parser worker loop: {e}", is_test=is_test)
             except Exception:
-                pass
+                traceback.print_exc(file=sys.stderr)
             time.sleep(1)
 
 if __name__ == "__main__":
     main()
+
 

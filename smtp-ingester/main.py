@@ -1,4 +1,6 @@
 import os
+import sys
+import traceback
 import asyncio
 import uuid
 import json
@@ -11,7 +13,14 @@ from aiosmtpd.handlers import AsyncMessage
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 RAW_PATH = os.getenv("RAW_PATH", "/data/raw")
 
-def push_system_log(r, level: str, event_type: str, message: str, details: str | None = None, is_test: bool = False):
+def push_system_log(
+    r: redis.Redis,
+    level: str,
+    event_type: str,
+    message: str,
+    details: str | None = None,
+    is_test: bool = False
+) -> None:
     try:
         log_payload = {
             "component": "smtp-ingester",
@@ -23,8 +32,9 @@ def push_system_log(r, level: str, event_type: str, message: str, details: str |
             "timestamp": datetime.utcnow().isoformat()
         }
         r.lpush("system_log_jobs", json.dumps(log_payload))
-    except Exception as e:
-        print(f"Failed to push system log: {e}")
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
+
 
 class DMARCReceivingHandler:
     async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
