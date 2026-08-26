@@ -186,3 +186,6 @@ Generated outputs will be placed in `docs/generated/site/`.
 #### Reviewing AI-Generated Documentation
 
 All updates performed with `use_ai=true` MUST be reviewed by human maintainers. Any uncertain AI inferences will be flagged with `TODO: REVIEW REQUIRED` in the AsciiDoc files.
+
+## Impression
+<img width="1127" height="1166" alt="image" src="https://github.com/user-attachments/assets/18b68210-799f-4b57-a3ea-762ca618840b" />
