@@ -98,8 +98,11 @@ def generate_architecture_diagram(manifest, output_dir):
     g.edge('Users', 'Frontend', label='Browse')
     
     output_path = output_dir / 'architecture-diagram'
-    g.render(output_path, format='svg', cleanup=True)
-    print(f"✓ Generated architecture diagram: {output_path}.svg")
+    try:
+        g.render(output_path, format='svg', cleanup=True)
+        print(f"✓ Generated architecture diagram: {output_path}.svg")
+    except Exception as e:
+        print(f"✗ Skipping architecture diagram (dot executable failed: {e})")
 
 
 def generate_database_schema(manifest, output_dir):
@@ -143,8 +146,11 @@ def generate_database_schema(manifest, output_dir):
             g.edge(model_name, related)
     
     output_path = output_dir / 'database-schema'
-    g.render(output_path, format='svg', cleanup=True)
-    print(f"✓ Generated database schema: {output_path}.svg")
+    try:
+        g.render(output_path, format='svg', cleanup=True)
+        print(f"✓ Generated database schema: {output_path}.svg")
+    except Exception as e:
+        print(f"✗ Skipping database schema (dot executable failed: {e})")
 
 
 def generate_endpoints_visualization(manifest, output_dir):

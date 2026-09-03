@@ -10,9 +10,15 @@ mkdir -p "${SITE_OUTPUT_DIR}" "${CACHE_DIR}" "${REPORTS_DIR}" "${IMAGES_OUTPUT_D
 
 echo "=== Building arc42 Architecture Documentation ==="
 
-if command -v python3 >/dev/null 2>&1 && [[ -f "scripts/generate-docs-images.py" ]]; then
-  echo "Generating architecture & schema images via generate-docs-images.py..."
-  python3 scripts/generate-docs-images.py || echo "Warning: Image generation skipped or dependencies missing."
+if command -v python3 >/dev/null 2>&1; then
+  if [[ -f "scripts/generate-docs-images.py" ]]; then
+    echo "Generating architecture & schema images via generate-docs-images.py..."
+    python3 scripts/generate-docs-images.py || echo "Warning: Image generation skipped or dependencies missing."
+  fi
+  if [[ -f "scripts/generate-svg-diagrams.py" ]]; then
+    echo "Generating high-fidelity SVG diagrams..."
+    python3 scripts/generate-svg-diagrams.py || true
+  fi
 fi
 
 # Check for docToolchain availability
@@ -63,7 +69,7 @@ else
       fi
     done
   else
-    echo "Asciidoctor CLI not found in environment. Generating consolidated HTML output with relative image asset references..."
+    echo "Asciidoctor CLI not found in environment. Generating modern GitHub Pages site using Python compiler..."
     
     # Copy images to site output directory
     mkdir -p "${SITE_OUTPUT_DIR}/images"
@@ -71,54 +77,9 @@ else
       cp -r "${IMAGES_OUTPUT_DIR}/"* "${SITE_OUTPUT_DIR}/images/" 2>/dev/null || true
     fi
 
-    INDEX_HTML="${SITE_OUTPUT_DIR}/index.html"
-    cat <<EOF > "${INDEX_HTML}"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>ER-DMARC-Monitor Architecture Documentation (arc42)</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; padding: 2rem; max-width: 950px; margin: 0 auto; color: #1a202c; background-color: #f7fafc; }
-    h1 { color: #2b6cb0; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; }
-    h2 { color: #2d3748; margin-top: 1.5rem; }
-    .chapter { background: white; padding: 1.5rem; margin-bottom: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .diagram-box { text-align: center; margin: 1.5rem 0; padding: 1rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; }
-    .diagram-box img { max-width: 100%; height: auto; }
-    pre { background: #edf2f7; padding: 1rem; border-radius: 6px; overflow-x: auto; }
-    .todo { background: #fffaf0; border-left: 4px solid #dd6b20; padding: 0.5rem 1rem; margin: 0.5rem 0; font-weight: bold; color: #9c4221; }
-  </style>
-</head>
-<body>
-  <h1>ER-DMARC-Monitor Architecture Documentation (arc42)</h1>
-
-  <div class="chapter">
-    <h2>System Architecture Overview</h2>
-    <div class="diagram-box">
-      <img src="images/architecture-diagram.svg" alt="Architecture Diagram" onerror="this.src='images/metadata-badge.png'; this.onerror=null;" />
-    </div>
-  </div>
-EOF
-
-    shopt -s nullglob
-    for adoc_file in docs/arc42/*.adoc; do
-      if [[ -f "${adoc_file}" && "$(basename "${adoc_file}")" != "index.adoc" ]]; then
-        chapter_title=$(basename "${adoc_file}")
-        escaped_title=$(echo "${chapter_title}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
-        echo "  <div class=\"chapter\">" >> "${INDEX_HTML}"
-        echo "    <h2>${escaped_title}</h2>" >> "${INDEX_HTML}"
-        echo "    <pre>" >> "${INDEX_HTML}"
-        sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' "${adoc_file}" >> "${INDEX_HTML}"
-        echo "    </pre>" >> "${INDEX_HTML}"
-        echo "  </div>" >> "${INDEX_HTML}"
-      fi
-    done
-    shopt -u nullglob
-
-    cat <<EOF >> "${INDEX_HTML}"
-</body>
-</html>
-EOF
+    if [[ -f "scripts/generate-pages-site.py" ]]; then
+      python3 scripts/generate-pages-site.py
+    fi
   fi
 
   if command -v asciidoctor-pdf >/dev/null 2>&1; then
