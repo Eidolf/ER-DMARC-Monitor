@@ -74,6 +74,14 @@ def parse_adoc_to_html(content: str) -> str:
                 html_lines.append(f'<div class="todo-pill"><span class="badge badge-warning">Action Item</span> {todo_text}</div>')
             continue
 
+        # AsciiDoc block attributes (e.g. [options="header",cols="1,2,2"], [source,python], etc.)
+        if line.startswith("[") and line.endswith("]"):
+            continue
+
+        # AsciiDoc document attributes (e.g. :toc: left)
+        if line.startswith(":") and line.count(":") >= 2:
+            continue
+
         # Tables |===
         if line.startswith("|==="):
             if in_table:
