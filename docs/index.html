@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ER-DMARC-Monitor Architecture & Engineering Documentation (arc42)">
+  <title>ER-DMARC-Monitor · Architecture Documentation (arc42)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-canvas: #090d16;
+      --bg-sidebar: #0e1526;
+      --bg-card: #131b2e;
+      --bg-card-header: #1a243d;
+      --border-subtle: #1e293b;
+      --border-highlight: #334155;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-primary: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --accent-success: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --sidebar-width: 280px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: var(--sidebar-width);
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border-subtle);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+    }
+
+    .sidebar-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .logo-badge {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: white;
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+
+    .project-name {
+      font-weight: 800;
+      font-size: 1.05rem;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+
+    .project-sub {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .nav-search {
+      padding: 0.5rem 0.75rem;
+      margin: 1rem 1.25rem 0.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-search input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .nav-group {
+      padding: 0.5rem 0.75rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .nav-link {
+      display: block;
+      padding: 0.55rem 0.85rem;
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .nav-link:hover {
+      color: var(--accent-primary);
+      background-color: rgba(56, 189, 248, 0.08);
+    }
+
+    .nav-link.active {
+      color: #ffffff;
+      background: linear-gradient(90deg, rgba(56, 189, 248, 0.15), rgba(37, 99, 235, 0.05));
+      border-left: 3px solid var(--accent-primary);
+      font-weight: 600;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 1.25rem;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Main Content Area */
+    .main-wrapper {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      padding: 2.5rem 3.5rem 5rem;
+      max-width: 1200px;
+    }
+
+    .top-hero {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9));
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 2rem 2.5rem;
+      margin-bottom: 2.5rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    .hero-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(to right, #ffffff, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.4rem;
+    }
+
+    .hero-desc {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      max-width: 650px;
+    }
+
+    .meta-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .pill-green { border-color: rgba(16, 185, 129, 0.3); color: #6ee7b7; background: rgba(16, 185, 129, 0.1); }
+    .pill-blue { border-color: rgba(56, 189, 248, 0.3); color: #7dd3fc; background: rgba(56, 189, 248, 0.1); }
+
+    /* Chapter Cards */
+    .chapter-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 2.25rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      scroll-margin-top: 2rem;
+    }
+
+    .chapter-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #ffffff;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #38bdf8;
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .subsection-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .doc-p {
+      color: #cbd5e1;
+      font-size: 0.95rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .doc-li {
+      color: #e2e8f0;
+      margin-left: 1.5rem;
+      margin-bottom: 0.4rem;
+      font-size: 0.92rem;
+    }
+
+    .doc-subli {
+      color: #94a3b8;
+      margin-left: 3rem;
+      margin-bottom: 0.3rem;
+      font-size: 0.88rem;
+    }
+
+    .inline-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      color: #38bdf8;
+    }
+
+    .code-block {
+      background: #090d16;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+      overflow-x: auto;
+    }
+
+    .code-block pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: #e2e8f0;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 50%;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 0.15rem;
+    }
+
+    .step-content {
+      color: #cbd5e1;
+      font-size: 0.92rem;
+    }
+
+    /* Diagrams & SVGs */
+    .interactive-diagram-container {
+      background: #0f172a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 1.5rem 0;
+    }
+
+    .diagram-toolbar {
+      background: #1e293b;
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .diagram-tag {
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .diagram-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-left: 0.5rem;
+      flex: 1;
+    }
+
+    .diagram-btn {
+      font-size: 0.75rem;
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: 600;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: all 0.2s;
+    }
+
+    .diagram-btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: #38bdf8;
+    }
+
+    .svg-viewer {
+      padding: 1.5rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #0b1120;
+    }
+
+    .svg-viewer img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    /* Table Styles */
+    .table-responsive {
+      overflow-x: auto;
+      margin: 1.25rem 0;
+    }
+
+    .doc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      text-align: left;
+    }
+
+    .doc-table th {
+      background: var(--bg-card-header);
+      color: #f8fafc;
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      border-bottom: 2px solid var(--border-subtle);
+    }
+
+    .doc-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      color: #cbd5e1;
+    }
+
+    .doc-table tr:hover td {
+      background: rgba(255,255,255,0.02);
+    }
+
+    /* Alerts and Callouts */
+    .callout {
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      margin: 1.25rem 0;
+      font-size: 0.9rem;
+    }
+
+    .callout-info {
+      background: rgba(56, 189, 248, 0.08);
+      border-left: 4px solid #38bdf8;
+      color: #bae6fd;
+    }
+
+    .callout h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+      color: #ffffff;
+    }
+
+    .todo-pill {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px dashed rgba(245, 158, 11, 0.35);
+      border-radius: 6px;
+      padding: 0.6rem 0.9rem;
+      margin: 0.75rem 0;
+      font-size: 0.82rem;
+      color: #fde68a;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .badge-warning {
+      background: #f59e0b;
+      color: #000000;
+      font-weight: 700;
+      font-size: 0.68rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      body { flex-direction: column; }
+      .sidebar { position: static; width: 100%; border-right: none; border-bottom: 1px solid var(--border-subtle); }
+      .main-wrapper { margin-left: 0; padding: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-container">
+        <div class="logo-badge">ER</div>
+        <div>
+          <div class="project-name">DMARC Monitor</div>
+          <div class="project-sub">Architecture arc42</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-search">
+      <input type="text" id="chapterFilter" placeholder="Filter sections..." autocomplete="off">
+    </div>
+
+    <nav class="nav-group" id="navGroup">
+      <a href="#introduction" class="nav-link" data-target="introduction">1. Introduction & Goals</a><a href="#constraints" class="nav-link" data-target="constraints">2. Constraints</a><a href="#scope" class="nav-link" data-target="scope">3. System Scope & Context</a><a href="#strategy" class="nav-link" data-target="strategy">4. Solution Strategy</a><a href="#building-blocks" class="nav-link" data-target="building-blocks">5. Building Block View</a><a href="#runtime" class="nav-link" data-target="runtime">6. Runtime View</a><a href="#deployment" class="nav-link" data-target="deployment">7. Deployment View</a><a href="#crosscutting" class="nav-link" data-target="crosscutting">8. Crosscutting Concepts</a><a href="#decisions" class="nav-link" data-target="decisions">9. Architecture Decisions</a><a href="#quality" class="nav-link" data-target="quality">10. Quality Requirements</a><a href="#risks" class="nav-link" data-target="risks">11. Risks & Tech Debt</a><a href="#glossary" class="nav-link" data-target="glossary">12. Glossary</a><a href="#database-schema" class="nav-link" data-target="database-schema">Data Models & Schema</a><a href="#api-endpoints" class="nav-link" data-target="api-endpoints">API Endpoints</a><a href="#build-reports" class="nav-link" data-target="build-reports">Reports & Diff</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div>Generated: 2026-09-03 09:08 UTC</div>
+      <div>Maintained by: <strong>Eidolf</strong></div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-wrapper">
+    <header class="top-hero">
+      <div>
+        <h1 class="hero-title">ER-DMARC-Monitor</h1>
+        <p class="hero-desc">
+          Automated system architecture documentation following the international <strong>arc42</strong> engineering template. Synchronized continuously via Docs-as-Code pipeline.
+        </p>
+        <div class="meta-pills">
+          <span class="pill pill-green">● GitHub Pages Ready</span>
+          <span class="pill pill-blue">arc42 Standard v8</span>
+          <span class="pill">FastAPI · React · Redis · PostgreSQL</span>
+          <span class="pill">Docs-as-Code</span>
+        </div>
+      </div>
+      <div>
+        <img src="images/metadata-badge.svg" alt="Project Badge" style="max-height: 80px;" />
+      </div>
+    </header>
+
+    <!-- Sections -->
+    
+        <section id="introduction" class="chapter-card">
+            <h1 class="chapter-title">01. Introduction and Goals</h1>
+
+<h2 class="section-title">Requirements Overview</h2>
+<p class="doc-p">The ER-DMARC-Monitor system ingests, parses, and visualizes DMARC (Domain-based Message Authentication, Reporting, and Conformance) aggregate reports.</p>
+
+<h2 class="section-title">Quality Goals</h2>
+<li class="doc-li">Reliability: Reliable processing of incoming DMARC XML reports via SMTP.</li>
+<li class="doc-li">Maintainability: Modular microservices architecture (API, SMTP Ingester, Parser).</li>
+<li class="doc-li">Usability: Clear dashboard interface for monitoring DMARC report metrics and domain health.</li>
+
+<h2 class="section-title">Stakeholders</h2>
+<p class="doc-p">[options=&quot;header&quot;,cols=&quot;1,2,2&quot;]</p>
+<div class="table-responsive"><table class="doc-table">
+<thead><tr><th>Role</th><th>Contact</th><th>Expectation</th></tr></thead>
+<tbody>
+<tr><td>System Administrators</td><td>Dev Team</td><td>Reliable ingestion and clear visualization of DMARC reports.</td></tr>
+</tbody></table></div>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Verify initial requirements and goals against current implementation.</div>
+            
+        </section>
+        
+        <section id="constraints" class="chapter-card">
+            <h1 class="chapter-title">02. Architecture Constraints</h1>
+
+<h2 class="section-title">Technical Constraints</h2>
+<li class="doc-li">Language / Environment: Python 3.10+ for backend services (<code class="inline-code">api/</code>, <code class="inline-code">dmarc-parser/</code>, <code class="inline-code">smtp-ingester/</code>), TypeScript/React/Vite for frontend (<code class="inline-code">frontend/</code>).</li>
+<li class="doc-li">Containerization: Docker and Docker Compose (<code class="inline-code">docker-compose.yml</code>).</li>
+<li class="doc-li">Data Stores: PostgreSQL database and Redis message queue / cache.</li>
+
+<h2 class="section-title">Organizational Constraints</h2>
+<li class="doc-li">Git Repository: Versioned under single monorepo layout.</li>
+<li class="doc-li">Open Source Standards: Standard license and documentation layout.</li>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Update architecture constraints when runtime or deployment toolchains change.</div>
+            
+        </section>
+        
+        <section id="scope" class="chapter-card">
+            <h1 class="chapter-title">03. System Scope and Context</h1>
+
+<h2 class="section-title">Business Context</h2>
+<p class="doc-p">The system interfaces with external Mail Transfer Agents (MTAs) sending DMARC aggregate reports via email.</p>
+
+<h2 class="section-title">Technical Context</h2>
+<li class="doc-li">Inbound Interfaces: SMTP Server (<code class="inline-code">smtp-ingester/main.py</code>) accepting incoming report emails.</li>
+<li class="doc-li">Processing Queue: Redis queue transferring raw/extracted payload to parser (<code class="inline-code">dmarc-parser/main.py</code>).</li>
+<li class="doc-li">Data API: FastAPI backend (<code class="inline-code">api/main.py</code>) exposing parsed metrics to web dashboard (<code class="inline-code">frontend/</code>).</li>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Verify technical context endpoints and protocols against production network architecture.</div>
+            
+        </section>
+        
+        <section id="strategy" class="chapter-card">
+            <h1 class="chapter-title">04. Solution Strategy</h1>
+
+<h2 class="section-title">Fundamental Decisions</h2>
+<li class="doc-li">Decoupled Ingestion: Separate SMTP ingestion from XML parsing using Redis queues to handle spikes in email delivery.</li>
+<li class="doc-li">Asynchronous Parsing: <code class="inline-code">dmarc-parser</code> processes queued reports independently from API response cycles.</li>
+<li class="doc-li">Modern Web Interface: React SPA built with Vite for fast client rendering and analytics dashboards.</li>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Document additional architectural patterns as the project expands.</div>
+            
+        </section>
+        
+        <section id="building-blocks" class="chapter-card">
+            <h1 class="chapter-title">05. Building Block View</h1>
+
+<h2 class="section-title">Level 1: System Overview</h2>
+<p class="doc-p">The main system components include:</p>
+<li class="doc-li"><code class="inline-code">smtp-ingester</code>: Ingests incoming emails containing DMARC aggregate reports (<code class="inline-code">smtp-ingester/main.py</code>).</li>
+<li class="doc-li"><code class="inline-code">dmarc-parser</code>: Parses XML reports and inserts structured records into PostgreSQL (<code class="inline-code">dmarc-parser/main.py</code>).</li>
+<li class="doc-li"><code class="inline-code">api</code>: FastAPI application serving backend REST APIs (<code class="inline-code">api/main.py</code>).</li>
+<li class="doc-li"><code class="inline-code">frontend</code>: React SPA dashboard (<code class="inline-code">frontend/src/App.tsx</code>).</li>
+
+
+<h2 class="section-title">Level 2: Component Breakdown</h2>
+<li class="doc-li">Data Models &amp; Database Schemas: SQLModel definitions in <code class="inline-code">api/models.py</code>.</li>
+<li class="doc-li">Redis Job Ingestion &amp; Parser Handlers: Queue processor in <code class="inline-code">dmarc-parser/main.py</code> and receiver in <code class="inline-code">smtp-ingester/main.py</code>.</li>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Update building block diagrams when additional component sub-modules are introduced.</div>
+            
+            <div class="interactive-diagram-container">
+                <div class="diagram-toolbar">
+                    <span class="diagram-tag">Visual Model</span>
+                    <span class="diagram-title">System Architecture & Pipeline</span>
+                    <a href="images/architecture-diagram.svg" target="_blank" class="diagram-btn">Open Fullscreen ↗</a>
+                </div>
+                <div class="svg-viewer">
+                    <img src="images/architecture-diagram.svg" alt="System Architecture Diagram" loading="lazy" />
+                </div>
+            </div>
+            
+        </section>
+        
+        <section id="runtime" class="chapter-card">
+            <h1 class="chapter-title">06. Runtime View</h1>
+
+<h2 class="section-title">Scenario 1: DMARC Report Ingestion &amp; Processing</h2>
+<div class="step-item"><span class="step-num">1</span><div class="step-content">External MTA delivers DMARC report email to <code class="inline-code">smtp-ingester</code> (<code class="inline-code">smtp-ingester/main.py</code>).</div></div>
+<div class="step-item"><span class="step-num">2</span><div class="step-content"><code class="inline-code">smtp-ingester</code> extracts attachment, pushes payload job metadata to Redis queue (<code class="inline-code">smtp-ingester/main.py</code>).</div></div>
+<div class="step-item"><span class="step-num">3</span><div class="step-content"><code class="inline-code">dmarc-parser</code> fetches job from Redis queue, decompresses XML (<code class="inline-code">.zip</code>/<code class="inline-code">.gz</code>), parses records, and saves to PostgreSQL (<code class="inline-code">dmarc-parser/main.py</code>).</div></div>
+<div class="step-item"><span class="step-num">4</span><div class="step-content">User accesses web dashboard; <code class="inline-code">frontend</code> fetches aggregated metrics via REST API endpoints (<code class="inline-code">frontend/src/App.tsx</code>, <code class="inline-code">api/main.py</code>).</div></div>
+
+
+<h2 class="section-title">Scenario 2: Authentication &amp; Report Export Flows</h2>
+<li class="doc-li">[INCOMPLETE / UNDOCUMENTED]: Sequence diagrams and flows for user authentication and report exports are currently not implemented in codebase.</li>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Document authentication and report export runtime flows when implemented.</div>
+            
+            <div class="callout callout-info">
+                <h4>Pipeline Data Flow</h4>
+                <p>MTA Inbound &rarr; SMTP Receiver (Port 2525) &rarr; Redis Task Spool &rarr; Asynchronous XML Parser &rarr; PostgreSQL 15 &rarr; FastAPI REST &rarr; React SPA.</p>
+            </div>
+            
+        </section>
+        
+        <section id="deployment" class="chapter-card">
+            <h1 class="chapter-title">07. Deployment View</h1>
+
+<h2 class="section-title">Local / Development Deployment</h2>
+<li class="doc-li">Container Orchestration: Local multi-container development environment defined in <code class="inline-code">docker-compose.yml</code>.</li>
+<li class="doc-li">Services:</li>
+<li class="doc-subli"><code class="inline-code">api</code>: FastAPI application (<code class="inline-code">api/Dockerfile</code>, <code class="inline-code">docker-compose.yml</code>)</li>
+<li class="doc-subli"><code class="inline-code">frontend</code>: React SPA web server (<code class="inline-code">frontend/Dockerfile</code>, <code class="inline-code">docker-compose.yml</code>)</li>
+<li class="doc-subli"><code class="inline-code">smtp-ingester</code>: SMTP mail receiver (<code class="inline-code">smtp-ingester/Dockerfile</code>, <code class="inline-code">docker-compose.yml</code>)</li>
+<li class="doc-subli"><code class="inline-code">dmarc-parser</code>: Queue worker (<code class="inline-code">dmarc-parser/Dockerfile</code>, <code class="inline-code">docker-compose.yml</code>)</li>
+<li class="doc-subli"><code class="inline-code">db</code>: PostgreSQL database container</li>
+<li class="doc-subli"><code class="inline-code">redis</code>: Redis queue broker container</li>
+
+<h2 class="section-title">Production Deployment Topology</h2>
+<li class="doc-li">[INCOMPLETE / UNDOCUMENTED]: Production Kubernetes / Helm chart deployment topology manifests do not exist in repository.</li>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Document Production Kubernetes or Helm deployment topology when manifests are added.</div>
+            
+        </section>
+        
+        <section id="crosscutting" class="chapter-card">
+            <h1 class="chapter-title">08. Crosscutting Concepts</h1>
+
+<h2 class="section-title">Architecture &amp; Domain Concepts</h2>
+<li class="doc-li">Logging &amp; Diagnostics: Standard error logging with traceback output (<code class="inline-code">dmarc-parser/main.py</code>, <code class="inline-code">smtp-ingester/main.py</code>, <code class="inline-code">api/main.py</code>).</li>
+<li class="doc-li">Database Session Management: SQLModel session injection via <code class="inline-code">get_session</code> helper (<code class="inline-code">api/main.py</code>).</li>
+<li class="doc-li">Data Processing: XML extraction supporting <code class="inline-code">.zip</code> and <code class="inline-code">.gz</code> report archives (<code class="inline-code">dmarc-parser/main.py</code>).</li>
+
+<h2 class="section-title">Security &amp; Secret Management</h2>
+<li class="doc-li">[INCOMPLETE / UNDOCUMENTED]: User authentication mechanisms and centralized secret management patterns are currently not implemented in codebase. Environment variables are loaded via <code class="inline-code">.env</code> (<code class="inline-code">.env.example</code>).</li>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Document security, authentication, and key rotation mechanisms when implemented.</div>
+            
+        </section>
+        
+        <section id="decisions" class="chapter-card">
+            <h1 class="chapter-title">09. Architecture Decisions</h1>
+
+<h2 class="section-title">Architecture Decision Records (ADRs)</h2>
+<li class="doc-li">ADR 001: Use docToolchain / Asciidoctor for Docs-as-Code pipeline (<code class="inline-code">scripts/build-architecture-docs.sh</code>).</li>
+<li class="doc-li">ADR 002: Manual trigger strategy (<code class="inline-code">workflow_dispatch</code>) for GitHub Actions documentation pipeline to eliminate token waste (<code class="inline-code">.github/workflows/architecture-docs-manual.yml</code>).</li>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Record future architectural decision records here when major design choices are made.</div>
+            
+        </section>
+        
+        <section id="quality" class="chapter-card">
+            <h1 class="chapter-title">10. Quality Requirements</h1>
+
+<h2 class="section-title">Quality Tree &amp; Scenarios [INCOMPLETE / WORK IN PROGRESS]</h2>
+<li class="doc-li">Maintainability Scenario: Modular microservices layout (<code class="inline-code">api/</code>, <code class="inline-code">dmarc-parser/</code>, <code class="inline-code">smtp-ingester/</code>, <code class="inline-code">frontend/</code>). Threshold: 100% type-checking compliance (<code class="inline-code">npx tsc --noEmit</code>).</li>
+<li class="doc-li">Performance Scenario: Async report processing via Redis queue (<code class="inline-code">dmarc-parser/main.py</code>). Target throughput: Process 100 XML reports/min.</li>
+<li class="doc-li">Accuracy Scenario: Precise XML validation &amp; DNS verification (<code class="inline-code">api/dns_utils.py</code>). Target accuracy: 100% compliance with RFC 7489 / DMARC tags parsing.</li>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Complete formalized quality scenarios matrix with benchmarked latency and throughput SLAs.</div>
+            
+        </section>
+        
+        <section id="risks" class="chapter-card">
+            <h1 class="chapter-title">11. Risks and Technical Debt</h1>
+
+<h2 class="section-title">Technical Risks</h2>
+<li class="doc-li">Large XML Attachments: Processing extremely large aggregate reports could exceed container memory limits if not streamed.</li>
+<li class="doc-subli">Impact: Medium (Container OOM kill)</li>
+<li class="doc-subli">Likelihood: Low</li>
+<li class="doc-subli">Mitigation: Implement chunked streaming for decompressed XML payload parsing in <code class="inline-code">dmarc-parser/main.py</code>.</li>
+<li class="doc-subli">Detection: Monitor container memory utilization in Docker metrics.</li>
+<li class="doc-subli">Accountable Owner: Backend Lead (<code class="inline-code">@dev-team</code>)</li>
+
+<li class="doc-li">Malformed Email Reports: Handling non-standard DMARC XML schemas safely.</li>
+<li class="doc-subli">Impact: Low (Parser task failure)</li>
+<li class="doc-subli">Likelihood: Medium</li>
+<li class="doc-subli">Mitigation: Wrap XML parsing in schema validation and catch parse exceptions explicitly in <code class="inline-code">dmarc-parser/main.py</code>.</li>
+<li class="doc-subli">Detection: Error log entries recorded in stderr.</li>
+<li class="doc-subli">Accountable Owner: Parser Maintainer (<code class="inline-code">@dev-team</code>)</li>
+
+<h2 class="section-title">Technical Debt</h2>
+<li class="doc-li">Documentation Automation: AI updates must be validated manually by maintainers.</li>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Track ongoing technical debt and mitigation steps.</div>
+            
+        </section>
+        
+        <section id="glossary" class="chapter-card">
+            <h1 class="chapter-title">12. Glossary</h1>
+
+<h2 class="section-title">Domain Terms</h2>
+<li class="doc-li">DMARC: Domain-based Message Authentication, Reporting, and Conformance.</li>
+<li class="doc-li">SPF: Sender Policy Framework.</li>
+<li class="doc-li">DKIM: DomainKeys Identified Mail.</li>
+<li class="doc-li">MTA: Mail Transfer Agent.</li>
+<li class="doc-li">docToolchain: Architecture documentation toolchain for AsciiDoc compilation.</li>
+
+<div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Add further domain terms as required.</div>
+            
+        </section>
+        
+
+    <!-- Database Schema Section -->
+    <section id="database-schema" class="chapter-card">
+      <h1 class="chapter-title">Database Models &amp; Relational Schema</h1>
+      <p class="doc-p">Overview of data models defined with SQLModel and PostgreSQL schemas for reports, domains, alignment rules, and authentication.</p>
+      
+      <div class="interactive-diagram-container">
+        <div class="diagram-toolbar">
+          <span class="diagram-tag">Schema Vector</span>
+          <span class="diagram-title">PostgreSQL Database Schema &amp; Entities</span>
+          <a href="images/database-schema.svg" target="_blank" class="diagram-btn">Open Fullscreen ↗</a>
+        </div>
+        <div class="svg-viewer">
+          <img src="images/database-schema.svg" alt="Database Schema Diagram" loading="lazy" />
+        </div>
+      </div>
+    </section>
+
+    <!-- API Endpoints Section -->
+    <section id="api-endpoints" class="chapter-card">
+      <h1 class="chapter-title">API Endpoint Catalog</h1>
+      <p class="doc-p">Extracted REST API endpoints from FastAPI service inspection, grouped by HTTP verb.</p>
+      <div class="code-block">
+        <pre><code>====================================================================================================
+ER-DMARC-Monitor API Endpoints
+Generated: 2026-09-03T09:08:00.722227
+====================================================================================================
+
+
+DELETE Endpoints (4):
+----------------------------------------------------------------------------------------------------
+  /admin/smtp/inbound/domains/{domain_id}  | Summary: Delete listening domain       
+    Request: int                  | Response: None
+
+  /admin/smtp/inbound/recipients/{recipient_id} | Summary: Delete recipient              
+    Request: int                  | Response: None
+
+  /admin/users/{user_id}                   | Summary: Delete user                   
+    Request: int                  | Response: None
+
+  /domains/{domain_id}                     | Summary: Delete domain                 
+    Request: int                  | Response: None
+
+
+GET Endpoints (19):
+----------------------------------------------------------------------------------------------------
+  /admin/smtp/inbound                      | Summary: Get smtp inbound config       
+    Request: None                 | Response: None
+
+  /settings/global                         | Summary: Get global settings           
+    Request: None                 | Response: None
+
+  /settings/branding                       | Summary: Get branding                  
+    Request: None                 | Response: None
+
+  /admin/audit                             | Summary: Get audit logs                
+    Request: None                 | Response: None
+
+  /admin/system-logs                       | Summary: Get system processing logs    
+    Request: int                  | Response: None
+
+  /admin/users                             | Summary: Get users                     
+    Request: None                 | Response: None
+
+  /auth/profile/activity                   | Summary: Get activity                  
+    Request: None                 | Response: None
+
+  /auth/sso/login                          | Summary: Sso login                     
+    Request: None                 | Response: None
+
+  /auth/sso/callback                       | Summary: Sso callback                  
+    Request: str                  | Response: None
+
+  /auth/me                                 | Summary: Get me                        
+    Request: None                 | Response: None
+
+  /health                                  | Summary: Health check                  
+    Request: None                 | Response: None
+
+  /domains                                 | Summary: Get domains                   
+    Request: str                  | Response: None
+
+  /domains/{domain_id}/dns                 | Summary: Get domain dns details        
+    Request: int                  | Response: None
+
+  /domains/{domain_name}/records           | Summary: Get domain records            
+    Request: str                  | Response: None
+
+  /reports/records                         | Summary: Get all records               
+    Request: str                  | Response: None
+
+  /ips/{ip_address}                        | Summary: Get ip details                
+    Request: str                  | Response: None
+
+  /reports/stats                           | Summary: Get report stats              
+    Request: str                  | Response: None
+
+  /admin/smtp/test-results                 | Summary: Get test results              
+    Request: None                 | Response: None
+
+  /admin/smtp/scripts/{script_type}        | Summary: Get configured test script    
+    Request: str                  | Response: None
+
+
+ON_EVENT Endpoints (1):
+----------------------------------------------------------------------------------------------------
+  startup                                  | Summary: On startup                    
+    Request: None                 | Response: None
+
+
+PATCH Endpoints (3):
+----------------------------------------------------------------------------------------------------
+  /settings/branding                       | Summary: Update branding               
+    Request: dict                 | Response: None
+
+  /admin/smtp/inbound/domains/{domain_id}  | Summary: Update listening domain       
+    Request: dict                 | Response: None
+
+  /admin/users/{user_id}                   | Summary: Update user                   
+    Request: UserUpdate           | Response: None
+
+
+POST Endpoints (13):
+----------------------------------------------------------------------------------------------------
+  /admin/smtp/inbound/domains              | Summary: Add listening domain          
+    Request: ListeningDomainCreate | Response: None
+
+  /admin/smtp/inbound/domains/{domain_id}/recipients | Summary: Add recipient                 
+    Request: RecipientCreate      | Response: None
+
+  /settings/global                         | Summary: Update global settings        
+    Request: SystemSettings       | Response: None
+
+  /admin/users                             | Summary: Create user                   
+    Request: UserCreate           | Response: None
+
+  /admin/users/{user_id}/reset-mfa         | Summary: Reset user mfa                
+    Request: int                  | Response: None
+
+  /auth/profile/password                   | Summary: Change password               
+    Request: PasswordChangeRequest | Response: None
+
+  /auth/profile/mfa/setup                  | Summary: Setup mfa                     
+    Request: None                 | Response: None
+
+  /auth/profile/mfa/enable                 | Summary: Enable mfa                    
+    Request: str                  | Response: None
+
+  /auth/login                              | Summary: Login                         
+    Request: LoginRequest         | Response: None
+
+  /auth/mfa/verify                         | Summary: Verify mfa                    
+    Request: MFAVerifyRequest     | Response: None
+
+  /domains                                 | Summary: Create domain                 
+    Request: DomainCreate         | Response: None
+
+  /domains/refresh-dns                     | Summary: Refresh all dns               
+    Request: None                 | Response: dict
+
+  /admin/smtp/test-trigger                 | Summary: Trigger smtp test             
+    Request: str                  | Response: None
+
+
+====================================================================================================
+Total Endpoints: 40
+</code></pre>
+      </div>
+    </section>
+
+    <!-- Build & Diff Reports Section -->
+    <section id="build-reports" class="chapter-card">
+      <h1 class="chapter-title">Build Verification &amp; Git Diff Report</h1>
+      <p class="doc-p">Latest changes detected between current commit and documentation base tag.</p>
+      <div class="code-block">
+        <pre><code> .github/workflows/architecture-docs-manual.yml | 130 ++++++++++++++++
+ README.md                                      | 168 +++++++-------------
+ docs/arc42/01-introduction-and-goals.adoc      |  18 +++
+ docs/arc42/02-architecture-constraints.adoc    |  12 ++
+ docs/arc42/03-system-scope-and-context.adoc    |  11 ++
+ docs/arc42/04-solution-strategy.adoc           |   8 +
+ docs/arc42/05-building-block-view.adoc         |  14 ++
+ docs/arc42/06-runtime-view.adoc                |   9 ++
+ docs/arc42/07-deployment-view.adoc             |  13 ++
+ docs/arc42/08-crosscutting-concepts.adoc       |   8 +
+ docs/arc42/09-architecture-decisions.adoc      |   7 +
+ docs/arc42/10-quality-requirements.adoc        |   8 +
+ docs/arc42/11-risks-and-technical-debt.adoc    |  10 ++
+ docs/arc42/12-glossary.adoc                    |  10 ++
+ docs/generated/reports/doc-diff-summary.txt    |   2 +
+ docs/generated/reports/doc-relevant-files.txt  |   0
+ docs/generated/reports/doc-update-required.txt |   1 +
+ docs/generated/site/index.html                 | 206 +++++++++++++++++++++++++
+ scripts/ai-update-arc42-prompt.md              |  17 ++
+ scripts/build-architecture-docs.sh             |  83 ++++++++++
+ scripts/detect-doc-relevant-changes.sh         | 143 +++++++++++++++++
+ scripts/update-architecture-docs.sh            |  69 +++++++++
+ 22 files changed, 832 insertions(+), 115 deletions(-)
+</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Chapter filtering in sidebar
+    const filterInput = document.getElementById('chapterFilter');
+    const navLinks = document.querySelectorAll('.nav-link');
+
+    filterInput.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase();
+      navLinks.forEach(link => {
+        const text = link.textContent.toLowerCase();
+        link.style.display = text.includes(q) ? 'block' : 'none';
+      });
+    });
+
+    // Scroll spy for navigation links
+    const sections = document.querySelectorAll('section.chapter-card');
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const top = section.offsetTop - 120;
+        if (window.scrollY >= top) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('data-target') === current) {
+          link.classList.add('active');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

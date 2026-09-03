@@ -1,0 +1,143 @@
+====================================================================================================
+ER-DMARC-Monitor API Endpoints
+Generated: 2026-09-03T09:08:00.722227
+====================================================================================================
+
+
+DELETE Endpoints (4):
+----------------------------------------------------------------------------------------------------
+  /admin/smtp/inbound/domains/{domain_id}  | Summary: Delete listening domain       
+    Request: int                  | Response: None
+
+  /admin/smtp/inbound/recipients/{recipient_id} | Summary: Delete recipient              
+    Request: int                  | Response: None
+
+  /admin/users/{user_id}                   | Summary: Delete user                   
+    Request: int                  | Response: None
+
+  /domains/{domain_id}                     | Summary: Delete domain                 
+    Request: int                  | Response: None
+
+
+GET Endpoints (19):
+----------------------------------------------------------------------------------------------------
+  /admin/smtp/inbound                      | Summary: Get smtp inbound config       
+    Request: None                 | Response: None
+
+  /settings/global                         | Summary: Get global settings           
+    Request: None                 | Response: None
+
+  /settings/branding                       | Summary: Get branding                  
+    Request: None                 | Response: None
+
+  /admin/audit                             | Summary: Get audit logs                
+    Request: None                 | Response: None
+
+  /admin/system-logs                       | Summary: Get system processing logs    
+    Request: int                  | Response: None
+
+  /admin/users                             | Summary: Get users                     
+    Request: None                 | Response: None
+
+  /auth/profile/activity                   | Summary: Get activity                  
+    Request: None                 | Response: None
+
+  /auth/sso/login                          | Summary: Sso login                     
+    Request: None                 | Response: None
+
+  /auth/sso/callback                       | Summary: Sso callback                  
+    Request: str                  | Response: None
+
+  /auth/me                                 | Summary: Get me                        
+    Request: None                 | Response: None
+
+  /health                                  | Summary: Health check                  
+    Request: None                 | Response: None
+
+  /domains                                 | Summary: Get domains                   
+    Request: str                  | Response: None
+
+  /domains/{domain_id}/dns                 | Summary: Get domain dns details        
+    Request: int                  | Response: None
+
+  /domains/{domain_name}/records           | Summary: Get domain records            
+    Request: str                  | Response: None
+
+  /reports/records                         | Summary: Get all records               
+    Request: str                  | Response: None
+
+  /ips/{ip_address}                        | Summary: Get ip details                
+    Request: str                  | Response: None
+
+  /reports/stats                           | Summary: Get report stats              
+    Request: str                  | Response: None
+
+  /admin/smtp/test-results                 | Summary: Get test results              
+    Request: None                 | Response: None
+
+  /admin/smtp/scripts/{script_type}        | Summary: Get configured test script    
+    Request: str                  | Response: None
+
+
+ON_EVENT Endpoints (1):
+----------------------------------------------------------------------------------------------------
+  startup                                  | Summary: On startup                    
+    Request: None                 | Response: None
+
+
+PATCH Endpoints (3):
+----------------------------------------------------------------------------------------------------
+  /settings/branding                       | Summary: Update branding               
+    Request: dict                 | Response: None
+
+  /admin/smtp/inbound/domains/{domain_id}  | Summary: Update listening domain       
+    Request: dict                 | Response: None
+
+  /admin/users/{user_id}                   | Summary: Update user                   
+    Request: UserUpdate           | Response: None
+
+
+POST Endpoints (13):
+----------------------------------------------------------------------------------------------------
+  /admin/smtp/inbound/domains              | Summary: Add listening domain          
+    Request: ListeningDomainCreate | Response: None
+
+  /admin/smtp/inbound/domains/{domain_id}/recipients | Summary: Add recipient                 
+    Request: RecipientCreate      | Response: None
+
+  /settings/global                         | Summary: Update global settings        
+    Request: SystemSettings       | Response: None
+
+  /admin/users                             | Summary: Create user                   
+    Request: UserCreate           | Response: None
+
+  /admin/users/{user_id}/reset-mfa         | Summary: Reset user mfa                
+    Request: int                  | Response: None
+
+  /auth/profile/password                   | Summary: Change password               
+    Request: PasswordChangeRequest | Response: None
+
+  /auth/profile/mfa/setup                  | Summary: Setup mfa                     
+    Request: None                 | Response: None
+
+  /auth/profile/mfa/enable                 | Summary: Enable mfa                    
+    Request: str                  | Response: None
+
+  /auth/login                              | Summary: Login                         
+    Request: LoginRequest         | Response: None
+
+  /auth/mfa/verify                         | Summary: Verify mfa                    
+    Request: MFAVerifyRequest     | Response: None
+
+  /domains                                 | Summary: Create domain                 
+    Request: DomainCreate         | Response: None
+
+  /domains/refresh-dns                     | Summary: Refresh all dns               
+    Request: None                 | Response: dict
+
+  /admin/smtp/test-trigger                 | Summary: Trigger smtp test             
+    Request: str                  | Response: None
+
+
+====================================================================================================
+Total Endpoints: 40

@@ -82,6 +82,15 @@ else
     fi
   fi
 
+  # Mirror generated site to docs/ root so GitHub Pages works natively configured with /docs
+  mkdir -p docs/images
+  if [[ -f "${SITE_OUTPUT_DIR}/index.html" ]]; then
+    cp "${SITE_OUTPUT_DIR}/index.html" docs/index.html
+  fi
+  if [[ -d "${SITE_OUTPUT_DIR}/images" ]]; then
+    cp -r "${SITE_OUTPUT_DIR}/images/"* docs/images/ 2>/dev/null || true
+  fi
+
   if command -v asciidoctor-pdf >/dev/null 2>&1; then
     echo "Building PDF with asciidoctor-pdf..."
     for adoc_file in docs/arc42/*.adoc; do
@@ -92,4 +101,4 @@ else
   fi
 fi
 
-echo "Documentation build complete. Output located at ${SITE_OUTPUT_DIR}"
+echo "Documentation build complete. Output located at docs/index.html and ${SITE_OUTPUT_DIR}"

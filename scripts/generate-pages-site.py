@@ -15,6 +15,7 @@ DOCS_DIR = ROOT_DIR / "docs"
 ARC42_DIR = DOCS_DIR / "arc42"
 GENERATED_DIR = DOCS_DIR / "generated"
 SITE_DIR = GENERATED_DIR / "site"
+DOCS_IMAGES_DIR = DOCS_DIR / "images"
 IMAGES_DIR = GENERATED_DIR / "images"
 REPORTS_DIR = GENERATED_DIR / "reports"
 
@@ -167,12 +168,14 @@ def load_doc_diff_summary():
 def generate_site():
     SITE_DIR.mkdir(parents=True, exist_ok=True)
     (SITE_DIR / "images").mkdir(parents=True, exist_ok=True)
+    DOCS_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Ensure images are copied to site/images
+    # Ensure images are copied to site/images and docs/images
     if IMAGES_DIR.exists():
         for img in IMAGES_DIR.glob("*"):
             if img.is_file():
                 (SITE_DIR / "images" / img.name).write_bytes(img.read_bytes())
+                (DOCS_IMAGES_DIR / img.name).write_bytes(img.read_bytes())
 
     # Order of arc42 chapters
     chapter_files = [
@@ -842,7 +845,10 @@ def generate_site():
 '''
     index_file = SITE_DIR / "index.html"
     index_file.write_text(full_html, encoding="utf-8")
-    print(f"✓ Generated GitHub Pages site index: {index_file} ({len(full_html)} bytes)")
+    
+    docs_root_index = DOCS_DIR / "index.html"
+    docs_root_index.write_text(full_html, encoding="utf-8")
+    print(f"✓ Generated GitHub Pages site index: {docs_root_index} & {index_file} ({len(full_html)} bytes)")
 
 
 if __name__ == "__main__":
