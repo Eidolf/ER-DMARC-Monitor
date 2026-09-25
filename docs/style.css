@@ -119,6 +119,19 @@ h1, h2, h3, h4 {
     box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
 }
 
+.logo-img {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.45));
+    transition: transform 0.2s ease;
+}
+
+.logo:hover .logo-img {
+    transform: scale(1.08);
+}
+
 .nav-links {
     display: flex;
     align-items: center;
