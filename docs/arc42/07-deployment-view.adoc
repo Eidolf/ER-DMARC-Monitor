@@ -11,6 +11,10 @@
   - `redis`: Redis queue broker container
 
 == Production Deployment Topology
+* Mail Ingress Routing & Port Forwarding (Port 25 &rarr; 2525):
+  - Standard internet MTAs route SMTP traffic over Port 25.
+  - In production, it is standard practice to place an ingress reverse proxy or firewall NAT rule (e.g. Postfix, Nginx mail stream proxy, HAProxy, or iptables/nftables) in front of the container cluster.
+  - The proxy receives external traffic on standard Port 25, handles TLS termination / rate-limiting if desired, and relays the mail to `smtp-ingester` listening internally on Port 2525.
 * [INCOMPLETE / UNDOCUMENTED]: Production Kubernetes / Helm chart deployment topology manifests do not exist in repository.
 
 // TODO: REVIEW REQUIRED - Document Production Kubernetes or Helm deployment topology when manifests are added.

@@ -29,52 +29,74 @@
     <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
     </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+    </marker>
   </defs>
 
   <!-- Title & Legend -->
-  <text x="40" y="48" font-size="22" font-weight="700" fill="#f8fafc">ER-DMARC-Monitor · System Architecture &amp; Data Pipeline</text>
-  <text x="40" y="74" font-size="13" fill="#94a3b8">Interactive Service Topology, Asynchronous Queue Workers &amp; Analytics Pipeline</text>
+  <text x="40" y="44" font-size="22" font-weight="700" fill="#f8fafc">ER-DMARC-Monitor · System Architecture &amp; Data Pipeline</text>
+  <text x="40" y="68" font-size="13" fill="#94a3b8">Interactive Service Topology, Ingress Relay / Reverse Proxy &amp; Processing Pipeline</text>
 
   <!-- External MTAs -->
-  <g transform="translate(50, 120)">
-    <rect width="180" height="90" rx="10" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#cardGlow)"/>
-    <rect width="180" height="26" rx="10" fill="#f43f5e" fill-opacity="0.2"/>
+  <g transform="translate(30, 115)">
+    <rect width="170" height="90" rx="10" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#cardGlow)"/>
+    <rect width="170" height="26" rx="10" fill="#f43f5e" fill-opacity="0.2"/>
     <text x="14" y="20" font-size="12" font-weight="600" fill="#fda4af">EXTERNAL INGEST</text>
-    <text x="14" y="52" font-size="15" font-weight="700" fill="#ffffff">External Mail Servers</text>
-    <text x="14" y="72" font-size="12" fill="#94a3b8">MTAs (Google, MS, etc.)</text>
+    <text x="14" y="52" font-size="14" font-weight="700" fill="#ffffff">External Mail Servers</text>
+    <text x="14" y="72" font-size="11" fill="#94a3b8">MTAs (Google, MS, etc.)</text>
   </g>
 
-  <!-- Arrow 1: MTA -> SMTP Ingester -->
-  <path d="M 230 165 L 300 165" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4,4" marker-end="url(#arrow-blue)"/>
-  <text x="238" y="155" font-size="11" fill="#38bdf8">Port 2525</text>
+  <!-- Arrow 1a: MTA -> Reverse Proxy (Port 25) -->
+  <path d="M 200 160 L 235 160" stroke="#f43f5e" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <text x="202" y="152" font-size="10" font-weight="700" fill="#fda4af">Port 25</text>
+
+  <!-- Optional / Production Ingress Intermediate: Reverse Proxy / Port Forwarder -->
+  <g transform="translate(245, 110)">
+    <rect width="135" height="100" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="3,3" filter="url(#cardGlow)"/>
+    <rect width="135" height="24" rx="8" fill="#f59e0b" fill-opacity="0.2"/>
+    <text x="10" y="17" font-size="10" font-weight="700" fill="#fde68a">OPTIONAL / PROD</text>
+    <text x="10" y="46" font-size="12" font-weight="700" fill="#ffffff">Reverse Proxy</text>
+    <text x="10" y="64" font-size="10" fill="#cbd5e1">Postfix / Nginx / NAT</text>
+    <text x="10" y="82" font-size="10" font-weight="600" fill="#f59e0b">Port 25 &rarr; 2525</text>
+    <text x="10" y="96" font-size="9" fill="#94a3b8">TLS Termination</text>
+  </g>
+
+  <!-- Direct Local / Dev Bypass line (Direct Port 2525) -->
+  <path d="M 115 115 L 115 90 L 460 90 L 460 110" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="4,4" fill="none" marker-end="url(#arrow-blue)"/>
+  <text x="215" y="84" font-size="10" fill="#38bdf8">Direct Dev / Testing (Port 2525)</text>
+
+  <!-- Arrow 1b: Reverse Proxy -> SMTP Ingester (Port 2525) -->
+  <path d="M 380 160 L 405 160" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <text x="382" y="152" font-size="10" fill="#38bdf8">2525</text>
 
   <!-- Service: SMTP Ingester -->
-  <g transform="translate(310, 120)">
-    <rect width="200" height="100" rx="10" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#cardGlow)"/>
-    <rect width="200" height="26" rx="10" fill="#3b82f6" fill-opacity="0.2"/>
+  <g transform="translate(415, 115)">
+    <rect width="180" height="95" rx="10" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#cardGlow)"/>
+    <rect width="180" height="26" rx="10" fill="#3b82f6" fill-opacity="0.2"/>
     <text x="14" y="20" font-size="12" font-weight="600" fill="#93c5fd">INGEST SERVICE</text>
-    <text x="14" y="54" font-size="15" font-weight="700" fill="#ffffff">smtp-ingester</text>
-    <text x="14" y="74" font-size="12" fill="#94a3b8">aiosmtpd / Python 3.10+</text>
-    <text x="14" y="90" font-size="11" fill="#64748b">Validates &amp; extracts .zip/.gz</text>
+    <text x="14" y="52" font-size="15" font-weight="700" fill="#ffffff">smtp-ingester</text>
+    <text x="14" y="70" font-size="11" fill="#94a3b8">aiosmtpd (Port 2525)</text>
+    <text x="14" y="86" font-size="10" fill="#64748b">Extracts .zip/.gz XML</text>
   </g>
 
   <!-- Arrow 2: SMTP Ingester -> Redis -->
-  <path d="M 510 165 L 590 165" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
-  <text x="525" y="155" font-size="11" fill="#38bdf8">LPUSH job</text>
+  <path d="M 595 160 L 635 160" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <text x="598" y="152" font-size="10" fill="#38bdf8">LPUSH</text>
 
   <!-- Broker: Redis Queue -->
-  <g transform="translate(600, 120)">
-    <rect width="180" height="100" rx="10" fill="#1e293b" stroke="#e11d48" stroke-width="1.5" filter="url(#cardGlow)"/>
-    <rect width="180" height="26" rx="10" fill="#e11d48" fill-opacity="0.2"/>
+  <g transform="translate(645, 115)">
+    <rect width="170" height="95" rx="10" fill="#1e293b" stroke="#e11d48" stroke-width="1.5" filter="url(#cardGlow)"/>
+    <rect width="170" height="26" rx="10" fill="#e11d48" fill-opacity="0.2"/>
     <text x="14" y="20" font-size="12" font-weight="600" fill="#fda4af">MESSAGE BROKER</text>
-    <text x="14" y="54" font-size="15" font-weight="700" fill="#ffffff">Redis Queue</text>
-    <text x="14" y="74" font-size="12" fill="#94a3b8">Task Spooling (dmarc_jobs)</text>
-    <text x="14" y="90" font-size="11" fill="#64748b">Port 6379</text>
+    <text x="14" y="52" font-size="15" font-weight="700" fill="#ffffff">Redis Queue</text>
+    <text x="14" y="70" font-size="11" fill="#94a3b8">Spool (dmarc_jobs)</text>
+    <text x="14" y="86" font-size="10" fill="#64748b">Port 6379</text>
   </g>
 
   <!-- Arrow 3: Redis -> DMARC Parser -->
-  <path d="M 690 220 L 690 310" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
-  <text x="700" y="270" font-size="11" fill="#38bdf8">BRPOP</text>
+  <path d="M 730 210 L 730 310" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <text x="740" y="265" font-size="11" fill="#38bdf8">BRPOP</text>
 
   <!-- Worker: DMARC Parser -->
   <g transform="translate(590, 320)">

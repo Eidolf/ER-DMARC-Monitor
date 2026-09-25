@@ -501,7 +501,7 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div>Generated: 2026-09-25 09:04 UTC</div>
+      <div>Generated: 2026-09-25 09:52 UTC</div>
       <div>Maintained by: <strong>Eidolf</strong></div>
     </div>
   </aside>
@@ -627,10 +627,11 @@
             <h1 class="chapter-title">06. Runtime View</h1>
 
 <h2 class="section-title">Scenario 1: DMARC Report Ingestion &amp; Processing</h2>
-<div class="step-item"><span class="step-num">1</span><div class="step-content">External MTA delivers DMARC report email to <code class="inline-code">smtp-ingester</code> (<code class="inline-code">smtp-ingester/main.py</code>).</div></div>
-<div class="step-item"><span class="step-num">2</span><div class="step-content"><code class="inline-code">smtp-ingester</code> extracts attachment, pushes payload job metadata to Redis queue (<code class="inline-code">smtp-ingester/main.py</code>).</div></div>
-<div class="step-item"><span class="step-num">3</span><div class="step-content"><code class="inline-code">dmarc-parser</code> fetches job from Redis queue, decompresses XML (<code class="inline-code">.zip</code>/<code class="inline-code">.gz</code>), parses records, and saves to PostgreSQL (<code class="inline-code">dmarc-parser/main.py</code>).</div></div>
-<div class="step-item"><span class="step-num">4</span><div class="step-content">User accesses web dashboard; <code class="inline-code">frontend</code> fetches aggregated metrics via REST API endpoints (<code class="inline-code">frontend/src/App.tsx</code>, <code class="inline-code">api/main.py</code>).</div></div>
+<div class="step-item"><span class="step-num">1</span><div class="step-content">External MTA delivers DMARC report email over standard Port 25.</div></div>
+<div class="step-item"><span class="step-num">2</span><div class="step-content">In production deployments, an optional Reverse Proxy (e.g., Postfix, Nginx, HAProxy, or host firewall NAT) terminates external Port 25 connections and forwards traffic to <code class="inline-code">smtp-ingester</code> on Port 2525 (in development/testing, direct delivery to Port 2525 / 13062 is supported).</div></div>
+<div class="step-item"><span class="step-num">3</span><div class="step-content"><code class="inline-code">smtp-ingester</code> extracts attachment, pushes payload job metadata to Redis queue (<code class="inline-code">smtp-ingester/main.py</code>).</div></div>
+<div class="step-item"><span class="step-num">4</span><div class="step-content"><code class="inline-code">dmarc-parser</code> fetches job from Redis queue, decompresses XML (<code class="inline-code">.zip</code>/<code class="inline-code">.gz</code>), parses records, and saves to PostgreSQL (<code class="inline-code">dmarc-parser/main.py</code>).</div></div>
+<div class="step-item"><span class="step-num">5</span><div class="step-content">User accesses web dashboard; <code class="inline-code">frontend</code> fetches aggregated metrics via REST API endpoints (<code class="inline-code">frontend/src/App.tsx</code>, <code class="inline-code">api/main.py</code>).</div></div>
 
 
 <h2 class="section-title">Scenario 2: Authentication &amp; Report Export Flows</h2>
@@ -640,7 +641,7 @@
             
             <div class="callout callout-info">
                 <h4>Pipeline Data Flow</h4>
-                <p>MTA Inbound &rarr; SMTP Receiver (Port 2525) &rarr; Redis Task Spool &rarr; Asynchronous XML Parser &rarr; PostgreSQL 15 &rarr; FastAPI REST &rarr; React SPA.</p>
+                <p>MTA Inbound (Port 25) &rarr; <em>[Optional Reverse Proxy / Port-Forwarding: 25 &rarr; 2525]</em> &rarr; SMTP Ingester (Port 2525) &rarr; Redis Task Spool &rarr; Asynchronous XML Parser &rarr; PostgreSQL 15 &rarr; FastAPI REST &rarr; React SPA.</p>
             </div>
             
         </section>
@@ -659,6 +660,10 @@
 <li class="doc-subli"><code class="inline-code">redis</code>: Redis queue broker container</li>
 
 <h2 class="section-title">Production Deployment Topology</h2>
+<li class="doc-li">Mail Ingress Routing &amp; Port Forwarding (Port 25 &amp;rarr; 2525):</li>
+<li class="doc-subli">Standard internet MTAs route SMTP traffic over Port 25.</li>
+<li class="doc-subli">In production, it is standard practice to place an ingress reverse proxy or firewall NAT rule (e.g. Postfix, Nginx mail stream proxy, HAProxy, or iptables/nftables) in front of the container cluster.</li>
+<li class="doc-subli">The proxy receives external traffic on standard Port 25, handles TLS termination / rate-limiting if desired, and relays the mail to <code class="inline-code">smtp-ingester</code> listening internally on Port 2525.</li>
 <li class="doc-li">[INCOMPLETE / UNDOCUMENTED]: Production Kubernetes / Helm chart deployment topology manifests do not exist in repository.</li>
 
 <div class="todo-pill"><span class="badge badge-warning">Action Item</span> TODO: REVIEW REQUIRED - Document Production Kubernetes or Helm deployment topology when manifests are added.</div>
@@ -767,7 +772,7 @@
       <div class="code-block">
         <pre><code>====================================================================================================
 ER-DMARC-Monitor API Endpoints
-Generated: 2026-09-25T09:04:53.923989
+Generated: 2026-09-25T09:52:12.161708
 ====================================================================================================
 
 

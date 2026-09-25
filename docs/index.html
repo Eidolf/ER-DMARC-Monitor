@@ -237,7 +237,7 @@
                 <div class="arch-step">
                     <div class="arch-step-tag">Step 01 · Ingestion</div>
                     <h4>SMTP Ingester</h4>
-                    <p>Listens on Port 13062, unpackages attachments, and pushes to Redis queue.</p>
+                    <p>Receives via Port 25 (Reverse Proxy/NAT) &rarr; Port 2525, unpackages XML, pushes to Redis.</p>
                 </div>
                 <div class="arch-step">
                     <div class="arch-step-tag">Step 02 · Parsing</div>

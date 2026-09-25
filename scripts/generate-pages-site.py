@@ -233,7 +233,7 @@ def generate_site():
             extra_diagram = '''
             <div class="callout callout-info">
                 <h4>Pipeline Data Flow</h4>
-                <p>MTA Inbound &rarr; SMTP Receiver (Port 2525) &rarr; Redis Task Spool &rarr; Asynchronous XML Parser &rarr; PostgreSQL 15 &rarr; FastAPI REST &rarr; React SPA.</p>
+                <p>MTA Inbound (Port 25) &rarr; <em>[Optional Reverse Proxy / Port-Forwarding: 25 &rarr; 2525]</em> &rarr; SMTP Ingester (Port 2525) &rarr; Redis Task Spool &rarr; Asynchronous XML Parser &rarr; PostgreSQL 15 &rarr; FastAPI REST &rarr; React SPA.</p>
             </div>
             '''
 

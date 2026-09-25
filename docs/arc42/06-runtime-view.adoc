@@ -1,23 +1,26 @@
 = 06. Runtime View
 
 == Scenario 1: DMARC Report Ingestion & Processing
-1. External MTA delivers DMARC report email to `smtp-ingester` (`smtp-ingester/main.py`).
-2. `smtp-ingester` extracts attachment, pushes payload job metadata to Redis queue (`smtp-ingester/main.py`).
-3. `dmarc-parser` fetches job from Redis queue, decompresses XML (`.zip`/`.gz`), parses records, and saves to PostgreSQL (`dmarc-parser/main.py`).
-4. User accesses web dashboard; `frontend` fetches aggregated metrics via REST API endpoints (`frontend/src/App.tsx`, `api/main.py`).
+1. External MTA delivers DMARC report email over standard Port 25.
+2. In production deployments, an optional Reverse Proxy (e.g., Postfix, Nginx, HAProxy, or host firewall NAT) terminates external Port 25 connections and forwards traffic to `smtp-ingester` on Port 2525 (in development/testing, direct delivery to Port 2525 / 13062 is supported).
+3. `smtp-ingester` extracts attachment, pushes payload job metadata to Redis queue (`smtp-ingester/main.py`).
+4. `dmarc-parser` fetches job from Redis queue, decompresses XML (`.zip`/`.gz`), parses records, and saves to PostgreSQL (`dmarc-parser/main.py`).
+5. User accesses web dashboard; `frontend` fetches aggregated metrics via REST API endpoints (`frontend/src/App.tsx`, `api/main.py`).
 
 [plantuml, runtime-ingestion-sequence, svg]
 ----
 @startuml
 actor "External MTA" as mta
-participant "SMTP Ingester" as smtp
+participant "Reverse Proxy / Firewall\n(Optional: Port 25 -> 2525)" as proxy
+participant "SMTP Ingester\n(Port 2525)" as smtp
 database "Redis Queue" as redis
 participant "DMARC Parser" as parser
 database "PostgreSQL DB" as db
 participant "FastAPI REST API" as api
 actor "User Dashboard" as ui
 
-mta -> smtp : Send DMARC Email Report (.zip / .gz)
+mta -> proxy : Send DMARC Email Report (Port 25)
+proxy -> smtp : Forward SMTP Report Payload (Port 2525)
 smtp -> redis : Enqueue Report Job Payload
 redis -> parser : Dispatch Job Payload
 parser -> parser : Decompress & Parse XML
