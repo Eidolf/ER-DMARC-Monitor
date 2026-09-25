@@ -84,6 +84,10 @@ else
       echo "Generating QA, Security, Compliance and Development Standards report..."
       python3 scripts/generate-qa-security-site.py
     fi
+    if [[ -f "scripts/generate-testing-audit-site.py" ]]; then
+      echo "Generating Auditor & Tester Verification Handbook..."
+      python3 scripts/generate-testing-audit-site.py
+    fi
   fi
 
   # Mirror generated arc42 documentation to docs/arc42-site/ so it serves as subsite

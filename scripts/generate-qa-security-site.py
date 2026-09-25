@@ -647,13 +647,16 @@ def build_qa_security_html() -> str:
           <div class="project-sub">QA &amp; Security Assessment</div>
         </div>
       </div>
-      <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
-        <a href="../index.html" class="nav-btn" style="flex: 1; justify-content: center;">
+      <div style="display: flex; gap: 0.4rem; margin-top: 0.75rem; flex-wrap: wrap;">
+        <a href="../index.html" class="nav-btn" style="flex: 1; min-width: 70px; justify-content: center;">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 19"></polyline></svg>
-          Hub Home
+          Home
         </a>
-        <a href="../arc42-site/index.html" class="nav-btn" style="flex: 1; justify-content: center;">
-          arc42 Docs &rarr;
+        <a href="../arc42-site/index.html" class="nav-btn" style="flex: 1; min-width: 80px; justify-content: center;">
+          arc42
+        </a>
+        <a href="../testing-audit-site/index.html" class="nav-btn" style="flex: 1; min-width: 90px; justify-content: center; border-color: rgba(56, 189, 248, 0.4); color: #7dd3fc;">
+          Auditor &rarr;
         </a>
       </div>
     </div>
