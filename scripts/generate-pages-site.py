@@ -743,10 +743,15 @@ def generate_site():
           <div class="project-sub">Architecture arc42</div>
         </div>
       </div>
-      <a href="../index.html" class="diagram-btn" style="display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none; margin-top: 0.5rem; font-size: 0.8rem; width: 100%; justify-content: center;">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        Zurück zur Hauptseite
-      </a>
+      <div style="display: flex; gap: 0.4rem; margin-top: 0.5rem;">
+        <a href="../index.html" class="diagram-btn" style="flex: 1; display: inline-flex; align-items: center; gap: 0.3rem; text-decoration: none; font-size: 0.78rem; justify-content: center; padding: 0.35rem 0.5rem;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 19"></polyline></svg>
+          Hub Home
+        </a>
+        <a href="../qa-security-site/index.html" class="diagram-btn" style="flex: 1; display: inline-flex; align-items: center; gap: 0.3rem; text-decoration: none; font-size: 0.78rem; justify-content: center; padding: 0.35rem 0.5rem; border-color: rgba(16, 185, 129, 0.4);">
+          QA &amp; Security &rarr;
+        </a>
+      </div>
     </div>
 
     <div class="nav-search">
