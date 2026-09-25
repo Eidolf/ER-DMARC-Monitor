@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 940" width="100%" height="100%" style="background:#0f172a; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;">
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <text x="30" y="45" font-size="20" font-weight="700" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, sans-serif">Database Schema · Relational Entities &amp; Data Models</text>
+  <text x="30" y="70" font-size="12" fill="#94a3b8" font-family="-apple-system, BlinkMacSystemFont, sans-serif">SQLModel schema definitions extracted from api/models.py</text>
+  <g transform="translate(30, 100)">
+    <rect width="270" height="240" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="270" height="32" rx="8" fill="#2563eb" fill-opacity="0.3"/>
+    <text x="14" y="21" font-size="13" font-weight="700" fill="#60a5fa" font-family="-apple-system, BlinkMacSystemFont, sans-serif">User</text>
+    <text x="14" y="52" font-size="11" fill="#e2e8f0">id</text>
+    <text x="256" y="52" font-size="10" fill="#94a3b8" text-anchor="end">int?</text>
+    <text x="14" y="72" font-size="11" fill="#e2e8f0">email</text>
+    <text x="256" y="72" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="92" font-size="11" fill="#e2e8f0">username</text>
+    <text x="256" y="92" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="112" font-size="11" fill="#e2e8f0">hashed_password</text>
+    <text x="256" y="112" font-size="10" fill="#94a3b8" text-anchor="end">str?</text>
+    <text x="14" y="132" font-size="11" fill="#e2e8f0">role</text>
+    <text x="256" y="132" font-size="10" fill="#94a3b8" text-anchor="end">UserRole</text>
+    <text x="14" y="152" font-size="11" fill="#e2e8f0">is_active</text>
+    <text x="256" y="152" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="172" font-size="11" fill="#e2e8f0">auth_source</text>
+    <text x="256" y="172" font-size="10" fill="#94a3b8" text-anchor="end">AuthSource</text>
+    <text x="14" y="192" font-size="11" fill="#e2e8f0">mfa_enabled</text>
+    <text x="256" y="192" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="216" font-size="10" fill="#64748b" font-style="italic">+8 additional attributes...</text>
+  </g>
+  <g transform="translate(325, 100)">
+    <rect width="270" height="240" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="270" height="32" rx="8" fill="#2563eb" fill-opacity="0.3"/>
+    <text x="14" y="21" font-size="13" font-weight="700" fill="#60a5fa" font-family="-apple-system, BlinkMacSystemFont, sans-serif">SystemSettings</text>
+    <text x="14" y="52" font-size="11" fill="#e2e8f0">id</text>
+    <text x="256" y="52" font-size="10" fill="#94a3b8" text-anchor="end">int?</text>
+    <text x="14" y="72" font-size="11" fill="#e2e8f0">allow_local_login</text>
+    <text x="256" y="72" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="92" font-size="11" fill="#e2e8f0">allow_sso_login</text>
+    <text x="256" y="92" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="112" font-size="11" fill="#e2e8f0">enforce_mfa_admins</text>
+    <text x="256" y="112" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="132" font-size="11" fill="#e2e8f0">enforce_mfa_analysts</text>
+    <text x="256" y="132" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="152" font-size="11" fill="#e2e8f0">entra_tenant_id</text>
+    <text x="256" y="152" font-size="10" fill="#94a3b8" text-anchor="end">str?</text>
+    <text x="14" y="172" font-size="11" fill="#e2e8f0">entra_client_id</text>
+    <text x="256" y="172" font-size="10" fill="#94a3b8" text-anchor="end">str?</text>
+    <text x="14" y="192" font-size="11" fill="#e2e8f0">entra_client_secret</text>
+    <text x="256" y="192" font-size="10" fill="#94a3b8" text-anchor="end">str?</text>
+    <text x="14" y="216" font-size="10" fill="#64748b" font-style="italic">+11 additional attributes...</text>
+  </g>
+  <g transform="translate(620, 100)">
+    <rect width="270" height="240" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="270" height="32" rx="8" fill="#2563eb" fill-opacity="0.3"/>
+    <text x="14" y="21" font-size="13" font-weight="700" fill="#60a5fa" font-family="-apple-system, BlinkMacSystemFont, sans-serif">LoginAudit</text>
+    <text x="14" y="52" font-size="11" fill="#e2e8f0">id</text>
+    <text x="256" y="52" font-size="10" fill="#94a3b8" text-anchor="end">int?</text>
+    <text x="14" y="72" font-size="11" fill="#e2e8f0">user_id</text>
+    <text x="256" y="72" font-size="10" fill="#94a3b8" text-anchor="end">int</text>
+    <text x="14" y="92" font-size="11" fill="#e2e8f0">timestamp</text>
+    <text x="256" y="92" font-size="10" fill="#94a3b8" text-anchor="end">datetime</text>
+    <text x="14" y="112" font-size="11" fill="#e2e8f0">ip_address</text>
+    <text x="256" y="112" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="132" font-size="11" fill="#e2e8f0">method</text>
+    <text x="256" y="132" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="152" font-size="11" fill="#e2e8f0">status</text>
+    <text x="256" y="152" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="172" font-size="11" fill="#e2e8f0">detail</text>
+    <text x="256" y="172" font-size="10" fill="#94a3b8" text-anchor="end">str?</text>
+  </g>
+  <g transform="translate(915, 100)">
+    <rect width="270" height="240" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="270" height="32" rx="8" fill="#2563eb" fill-opacity="0.3"/>
+    <text x="14" y="21" font-size="13" font-weight="700" fill="#60a5fa" font-family="-apple-system, BlinkMacSystemFont, sans-serif">Domain</text>
+    <text x="14" y="52" font-size="11" fill="#e2e8f0">id</text>
+    <text x="256" y="52" font-size="10" fill="#94a3b8" text-anchor="end">int?</text>
+    <text x="14" y="72" font-size="11" fill="#e2e8f0">name</text>
+    <text x="256" y="72" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="92" font-size="11" fill="#e2e8f0">is_active</text>
+    <text x="256" y="92" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="112" font-size="11" fill="#e2e8f0">dmarc_policy</text>
+    <text x="256" y="112" font-size="10" fill="#94a3b8" text-anchor="end">str?</text>
+  </g>
+  <g transform="translate(30, 370)">
+    <rect width="270" height="240" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="270" height="32" rx="8" fill="#2563eb" fill-opacity="0.3"/>
+    <text x="14" y="21" font-size="13" font-weight="700" fill="#60a5fa" font-family="-apple-system, BlinkMacSystemFont, sans-serif">ReportMetadata</text>
+    <text x="14" y="52" font-size="11" fill="#e2e8f0">id</text>
+    <text x="256" y="52" font-size="10" fill="#94a3b8" text-anchor="end">int?</text>
+    <text x="14" y="72" font-size="11" fill="#e2e8f0">org_name</text>
+    <text x="256" y="72" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="92" font-size="11" fill="#e2e8f0">email</text>
+    <text x="256" y="92" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="112" font-size="11" fill="#e2e8f0">report_id</text>
+    <text x="256" y="112" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="132" font-size="11" fill="#e2e8f0">date_begin</text>
+    <text x="256" y="132" font-size="10" fill="#94a3b8" text-anchor="end">datetime</text>
+    <text x="14" y="152" font-size="11" fill="#e2e8f0">date_end</text>
+    <text x="256" y="152" font-size="10" fill="#94a3b8" text-anchor="end">datetime</text>
+    <text x="14" y="172" font-size="11" fill="#e2e8f0">domain_name</text>
+    <text x="256" y="172" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="192" font-size="11" fill="#e2e8f0">is_test</text>
+    <text x="256" y="192" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="216" font-size="10" fill="#64748b" font-style="italic">+1 additional attributes...</text>
+  </g>
+  <g transform="translate(325, 370)">
+    <rect width="270" height="240" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="270" height="32" rx="8" fill="#2563eb" fill-opacity="0.3"/>
+    <text x="14" y="21" font-size="13" font-weight="700" fill="#60a5fa" font-family="-apple-system, BlinkMacSystemFont, sans-serif">ReportRecord</text>
+    <text x="14" y="52" font-size="11" fill="#e2e8f0">id</text>
+    <text x="256" y="52" font-size="10" fill="#94a3b8" text-anchor="end">int?</text>
+    <text x="14" y="72" font-size="11" fill="#e2e8f0">report_id</text>
+    <text x="256" y="72" font-size="10" fill="#94a3b8" text-anchor="end">int</text>
+    <text x="14" y="92" font-size="11" fill="#e2e8f0">source_ip</text>
+    <text x="256" y="92" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="112" font-size="11" fill="#e2e8f0">count</text>
+    <text x="256" y="112" font-size="10" fill="#94a3b8" text-anchor="end">int</text>
+    <text x="14" y="132" font-size="11" fill="#e2e8f0">disposition</text>
+    <text x="256" y="132" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="152" font-size="11" fill="#e2e8f0">dkim_pass</text>
+    <text x="256" y="152" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="172" font-size="11" fill="#e2e8f0">spf_pass</text>
+    <text x="256" y="172" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="192" font-size="11" fill="#e2e8f0">spf_auth_results</text>
+    <text x="256" y="192" font-size="10" fill="#94a3b8" text-anchor="end">str?</text>
+    <text x="14" y="216" font-size="10" fill="#64748b" font-style="italic">+2 additional attributes...</text>
+  </g>
+  <g transform="translate(620, 370)">
+    <rect width="270" height="240" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="270" height="32" rx="8" fill="#2563eb" fill-opacity="0.3"/>
+    <text x="14" y="21" font-size="13" font-weight="700" fill="#60a5fa" font-family="-apple-system, BlinkMacSystemFont, sans-serif">SMTPListeningDomain</text>
+    <text x="14" y="52" font-size="11" fill="#e2e8f0">id</text>
+    <text x="256" y="52" font-size="10" fill="#94a3b8" text-anchor="end">int?</text>
+    <text x="14" y="72" font-size="11" fill="#e2e8f0">domain_name</text>
+    <text x="256" y="72" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="92" font-size="11" fill="#e2e8f0">is_active</text>
+    <text x="256" y="92" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="112" font-size="11" fill="#e2e8f0">created_at</text>
+    <text x="256" y="112" font-size="10" fill="#94a3b8" text-anchor="end">datetime</text>
+  </g>
+  <g transform="translate(915, 370)">
+    <rect width="270" height="240" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="270" height="32" rx="8" fill="#2563eb" fill-opacity="0.3"/>
+    <text x="14" y="21" font-size="13" font-weight="700" fill="#60a5fa" font-family="-apple-system, BlinkMacSystemFont, sans-serif">SMTPRecipient</text>
+    <text x="14" y="52" font-size="11" fill="#e2e8f0">id</text>
+    <text x="256" y="52" font-size="10" fill="#94a3b8" text-anchor="end">int?</text>
+    <text x="14" y="72" font-size="11" fill="#e2e8f0">listening_domain_id</text>
+    <text x="256" y="72" font-size="10" fill="#94a3b8" text-anchor="end">int</text>
+    <text x="14" y="92" font-size="11" fill="#e2e8f0">local_part</text>
+    <text x="256" y="92" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="112" font-size="11" fill="#e2e8f0">is_active</text>
+    <text x="256" y="112" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+    <text x="14" y="132" font-size="11" fill="#e2e8f0">is_dmarc_compliant</text>
+    <text x="256" y="132" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+  </g>
+  <g transform="translate(30, 640)">
+    <rect width="270" height="240" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5" filter="url(#shadow)"/>
+    <rect width="270" height="32" rx="8" fill="#2563eb" fill-opacity="0.3"/>
+    <text x="14" y="21" font-size="13" font-weight="700" fill="#60a5fa" font-family="-apple-system, BlinkMacSystemFont, sans-serif">SystemProcessingLog</text>
+    <text x="14" y="52" font-size="11" fill="#e2e8f0">id</text>
+    <text x="256" y="52" font-size="10" fill="#94a3b8" text-anchor="end">int?</text>
+    <text x="14" y="72" font-size="11" fill="#e2e8f0">timestamp</text>
+    <text x="256" y="72" font-size="10" fill="#94a3b8" text-anchor="end">datetime</text>
+    <text x="14" y="92" font-size="11" fill="#e2e8f0">component</text>
+    <text x="256" y="92" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="112" font-size="11" fill="#e2e8f0">level</text>
+    <text x="256" y="112" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="132" font-size="11" fill="#e2e8f0">event_type</text>
+    <text x="256" y="132" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="152" font-size="11" fill="#e2e8f0">message</text>
+    <text x="256" y="152" font-size="10" fill="#94a3b8" text-anchor="end">str</text>
+    <text x="14" y="172" font-size="11" fill="#e2e8f0">details</text>
+    <text x="256" y="172" font-size="10" fill="#94a3b8" text-anchor="end">str?</text>
+    <text x="14" y="192" font-size="11" fill="#e2e8f0">is_test</text>
+    <text x="256" y="192" font-size="10" fill="#94a3b8" text-anchor="end">bool</text>
+  </g>
+</svg>

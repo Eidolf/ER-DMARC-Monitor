@@ -1,0 +1,28 @@
+// ER-DMARC-Monitor Architecture
+digraph architecture {
+	graph [bgcolor=white fontname=Arial nodesep=0.8 rankdir=TB ranksep=1.0]
+	node [fillcolor=lightblue fontname=Arial shape=box style="rounded,filled"]
+	edge [fontname=Arial fontsize=10]
+	SMTP_Sources [label="DMARC
+Email Sources" fillcolor="#ffcccc"]
+	SMTP_Ingester [label="SMTP Ingester
+(Port 2525)" fillcolor="#ffe6cc"]
+	Redis [label="Redis Broker
+(Task Queue)" fillcolor="#fff4cc"]
+	DMARC_Parser [label="DMARC Parser
+(Worker)" fillcolor="#e6f3ff"]
+	PostgreSQL [label="PostgreSQL
+Database" fillcolor="#ccf2ff"]
+	FastAPI [label="FastAPI Backend
+(Port 8080)" fillcolor="#e6ccff"]
+	Frontend [label="React Dashboard
+(Port 80)" fillcolor="#ccf2cc"]
+	Users [label="Users/Analysts" fillcolor="#ffcccc"]
+	SMTP_Sources -> SMTP_Ingester [label="Email (SMTP)"]
+	SMTP_Ingester -> Redis [label=Queue]
+	Redis -> DMARC_Parser [label=Task]
+	DMARC_Parser -> PostgreSQL [label="Parsed Data"]
+	FastAPI -> PostgreSQL [label="Query/Update"]
+	Frontend -> FastAPI [label="REST API"]
+	Users -> Frontend [label=Browse]
+}

@@ -741,6 +741,10 @@ def generate_site():
           <div class="project-sub">Architecture arc42</div>
         </div>
       </div>
+      <a href="../index.html" class="diagram-btn" style="display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none; margin-top: 0.5rem; font-size: 0.8rem; width: 100%; justify-content: center;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        Zurück zur Hauptseite
+      </a>
     </div>
 
     <div class="nav-search">
@@ -854,9 +858,11 @@ def generate_site():
     index_file = SITE_DIR / "index.html"
     index_file.write_text(full_html, encoding="utf-8")
     
-    docs_root_index = DOCS_DIR / "index.html"
-    docs_root_index.write_text(full_html, encoding="utf-8")
-    print(f"✓ Generated GitHub Pages site index: {docs_root_index} & {index_file} ({len(full_html)} bytes)")
+    arc42_site_dir = DOCS_DIR / "arc42-site"
+    arc42_site_dir.mkdir(parents=True, exist_ok=True)
+    arc42_root_index = arc42_site_dir / "index.html"
+    arc42_root_index.write_text(full_html, encoding="utf-8")
+    print(f"✓ Generated arc42 documentation subsite: {arc42_root_index} & {index_file} ({len(full_html)} bytes)")
 
 
 if __name__ == "__main__":
