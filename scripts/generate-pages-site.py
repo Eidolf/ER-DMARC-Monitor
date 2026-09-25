@@ -642,9 +642,11 @@ def generate_site():
     }}
 
     .svg-viewer img {{
+      width: 100%;
       max-width: 100%;
       height: auto;
       border-radius: 8px;
+      display: block;
     }}
 
     /* Table Styles */

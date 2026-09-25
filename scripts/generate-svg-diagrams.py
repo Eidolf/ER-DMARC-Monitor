@@ -84,7 +84,7 @@ def generate_architecture_svg(output_path: Path):
     <text x="10" y="17" font-size="10" font-weight="700" fill="#fde68a">OPTIONAL / PROD</text>
     <text x="10" y="46" font-size="12" font-weight="700" fill="#ffffff">Reverse Proxy</text>
     <text x="10" y="64" font-size="10" fill="#cbd5e1">Postfix / Nginx / NAT</text>
-    <text x="10" y="82" font-size="10" font-weight="600" fill="#f59e0b">Port 25 &rarr; 2525</text>
+    <text x="10" y="82" font-size="10" font-weight="600" fill="#f59e0b">Port 25 &#8594; 2525</text>
     <text x="10" y="96" font-size="9" fill="#94a3b8">TLS Termination</text>
   </g>
 
